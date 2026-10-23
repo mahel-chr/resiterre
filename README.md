@@ -1,23 +1,25 @@
 # RésiTerre
 
-**Outil d'information sur les risques majeurs, conçu et développé par Mahel Chéour.**
+**Outil d'information et de sensibilisation aux risques majeurs, conçu et développé par Mahel Chéour.**
 
-👉 **Ouvrir l'outil : https://mahel-chr.github.io/resiterre/**
+Ouvrir l'outil : https://mahel-chr.github.io/resiterre/
 
-RésiTerre interroge en direct une vingtaine de sources publiques officielles et les croise avec chaque bâtiment d'un quartier ou d'une commune. Il ne calcule aucun « niveau de risque » : il restitue ce que dit chaque source, avec ses propres termes, ses classes et son lien, et signale quand une donnée manque.
+RésiTerre interroge en direct les sources publiques officielles sur les risques et les superpose à chaque bâtiment d'un quartier. Chaque information garde les termes, les classes et le lien de sa source ; aucune note synthétique ne vient s'y substituer, et l'outil signale quand une donnée manque ou ne couvre pas le territoire.
 
 ## Ce que l'on peut faire
 
-- Cadrer une zone (jusqu'à 16 km²) et lancer l'analyse, que l'on peut arrêter à tout moment.
-- Cliquer sur un bâtiment, en 2D ou en 3D, pour lire sa fiche : plans de prévention, zone réglementaire, scénarios d'inondation et hauteurs d'eau, argiles, cavités, débroussaillement, sols pollués, canalisations, avec l'adresse et les liens vers chaque source.
-- Colorer les bâtiments selon une information (scénarios des TRI, hauteur d'eau, zonage réglementaire, argiles, distance aux massifs forestiers…), chaque lecture ayant sa légende.
-- Consulter la fiche de la commune : risques recensés, plans de prévention avec leurs dates, arrêtés de catastrophe naturelle, DICRIM, TRI, PAPI, sismicité, radon, installations classées et Seveso, références climatiques officielles.
-- Créer un rapport imprimable (ou à enregistrer en PDF) pour la zone ou pour un bâtiment, avec tous les liens.
-- Comprendre : vocabulaire (aléa, enjeu, vulnérabilité, risque), réglementation et bons réflexes pour chaque risque.
+- Cadrer une zone de 16 km² au plus et lancer l'analyse, que l'on peut interrompre à tout moment.
+- Ouvrir la fiche d'un bâtiment, en 2D ou en 3D : plans de prévention et zone réglementaire, scénarios d'inondation et hauteurs d'eau, cartes Vigicrues, cours d'eau le plus proche, altitude du sol, argiles, cavités, débroussaillement, sols pollués, canalisations, plan particulier d'intervention nucléaire, zone du PLU, habitants du carreau INSEE. Chaque ligne renvoie à la fiche de sa source.
+- Colorer les bâtiments selon quatorze lectures, chacune accompagnée de sa légende et d'un texte qui explique comment l'interpréter.
+- Découvrir les lectures croisées : logements de plain-pied en zone inondable, établissements sensibles exposés, zones à urbaniser recoupant un aléa, habitants âgés des carreaux concernés.
+- Consulter la commune : risques recensés, plans de prévention et leurs dates, arrêtés de catastrophe naturelle, DICRIM, TRI, PAPI, sismicité, radon, installations classées et Seveso, références climatiques officielles.
+- Lire, pour chaque source, comment la donnée est produite, ce qu'elle permet de dire et ses limites, et télécharger les données de la zone au format GeoJSON.
+- Créer un rapport à imprimer ou à enregistrer en PDF, pour la zone ou pour un bâtiment, avec tous les liens.
+- Apprendre : vocabulaire, lecture des cartes de risque, réglementation et bons réflexes pour chaque risque.
 
 ## Sources
 
-IGN (BD TOPO, Géoplateforme, zonages des obligations légales de débroussaillement), Géoportail de l'urbanisme (servitudes PM1 et PM3, documents d'urbanisme), Géorisques et base GASPAR (procédures, catastrophes naturelles, TRI, PAPI, DICRIM, sismicité, radon, installations classées, sites et sols pollués, canalisations), BRGM (argiles, cavités, mouvements de terrain), Vigicrues (zones d'inondation), zonages réglementaires au standard CNIG publiés par les services de l'État, Référentiel national des bâtiments, Base adresse nationale, INSEE, data.gouv.fr.
+IGN (BD TOPO : bâtiments, établissements, végétation, hydrographie ; Géoplateforme ; zonage des obligations légales de débroussaillement), Géoportail de l'urbanisme (servitudes PM1 et PM3, zonage des PLU, documents d'urbanisme), Géorisques et base GASPAR (procédures, catastrophes naturelles, TRI, PAPI, DICRIM, sismicité, radon, installations classées, installations nucléaires, sites et sols pollués, canalisations), BRGM (argiles, cavités, mouvements de terrain), Vigicrues (zones d'inondation), zonages réglementaires au standard CNIG publiés par les services de l'État, INSEE (données carroyées à 200 m), Référentiel national des bâtiments, Base adresse nationale, data.gouv.fr.
 
 ## Auteure
 
