@@ -15,6 +15,7 @@ RésiTerre interroge en direct les sources publiques officielles sur les risques
 - Consulter la commune : risques recensés, plans de prévention et leurs dates, arrêtés de catastrophe naturelle, DICRIM, TRI, PAPI, sismicité, radon, installations classées et Seveso, références climatiques officielles.
 - Lire, pour chaque source, comment la donnée est produite, ce qu'elle permet de dire et ses limites, et télécharger les données de la zone au format GeoJSON.
 - Créer un rapport à imprimer ou à enregistrer en PDF, pour la zone ou pour un bâtiment, avec tous les liens.
+- Télécharger la carte affichée, en 2D ou en 3D, sous forme d'image PNG avec sa légende complète, son échelle, ses sources et sa date.
 - Apprendre : vocabulaire, lecture des cartes de risque, réglementation et bons réflexes pour chaque risque.
 
 ## Sources
