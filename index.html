@@ -82,7 +82,7 @@ header.top { padding: 14px 18px 10px; display: flex; flex-direction: column; gap
 .note.info { background: var(--info-bg); color: var(--info-ink); }
 .note a { color: inherit; }
 
-.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 .kpi { padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
 .kpi b { display: block; font-family: var(--mono); font-weight: 500; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kpi span { font-size: 11.5px; color: var(--ink-3); }
@@ -146,6 +146,22 @@ dl.kv dd { margin: 0; }
 .srclist li { break-inside: avoid; color: var(--ink-3); }
 .srclist li.ok { color: var(--ink-2); }
 .srclist li.ko { color: var(--warn-ink); }
+.srclist .state { display: inline-block; min-width: 74px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
+.legend details.howto { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 0; margin: 7px 0 0; }
+.legend details.howto summary { padding: 6px 0 2px; font-size: 11.5px; color: var(--accent); }
+.legend details.howto p { margin: 4px 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
+details.srcsheet summary { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; list-style: none; }
+details.srcsheet summary::-webkit-details-marker { display: none; }
+details.srcsheet summary > span:first-child { min-width: 0; }
+details.srcsheet .meta { display: block; font-weight: 400; color: var(--ink-3); font-size: 12px; }
+details.srcsheet .st { font-weight: 400; font-size: 11.5px; color: var(--ink-3); text-align: right; flex: none; max-width: 40%; }
+details.srcsheet .st.ko { color: var(--warn-ink); }
+details.srcsheet code { font-size: 11.5px; }
+details.flash { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.links .btn.sm { font-size: 12.5px; padding: 3px 9px; border-radius: 12px; }
+ul.cross li { margin: 6px 0; }
+.fiche a.learn { font-size: 11px; color: #0f5b4f; white-space: nowrap; }
+.fiche a.srcref { color: inherit; text-decoration: underline dotted; }
 
 .leaflet-popup-content, .maplibregl-popup-content { font-family: var(--sans); font-size: 12.5px; line-height: 1.45; }
 .leaflet-popup-content { margin: 10px 12px; width: 320px !important; }
@@ -153,7 +169,8 @@ dl.kv dd { margin: 0; }
 .fiche h5 { margin: 0 0 2px; font-size: 14px; }
 .fiche .sub { color: #5d6963; margin-bottom: 6px; }
 .fiche .sec { margin-top: 9px; }
-.fiche .sec > b { display: block; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: #5d6963; margin-bottom: 3px; }
+.fiche .sec .sh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.fiche .sec .sh b, .fiche .sec > b { display: block; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: #5d6963; margin-bottom: 3px; }
 .fiche ul { margin: 0; padding-left: 16px; }
 .fiche li { margin: 3px 0; }
 .fiche li.no { color: #6d7a73; }
@@ -238,6 +255,8 @@ dl.kv dd { margin: 0; }
 
 const MAX_KM2 = 16;        // emprise maximale analysée
 const R_PT = 200;          // rayon de recherche des objets ponctuels recensés (m)
+const R_EAU = 500;         // rayon de recherche des cours d'eau et plans d'eau (m)
+const SRC_DEADLINE = 60000; // délai maximal accordé à une source (ms)
 const R_OLD = 200;         // distance aux bois et forêts dans laquelle s'appliquent les OLD (code forestier)
 
 /* ---------- Utilitaires ---------- */
@@ -478,6 +497,9 @@ const LINKS = {
   datagouv: { u: 'https://www.data.gouv.fr/', t: 'data.gouv.fr' },
   geoapi: { u: 'https://geo.api.gouv.fr/', t: 'API Découpage administratif' },
   geoplateforme: { u: 'https://cartes.gouv.fr/', t: 'cartes.gouv.fr (Géoplateforme de l\'IGN)' },
+  insee: { u: 'https://www.insee.fr/fr/statistiques/8735162', t: 'INSEE : données au carreau de 200 m' },
+  asnr: { u: 'https://www.asnr.fr/', t: 'ASNR : sûreté nucléaire et radioprotection' },
+  iode: { u: 'https://www.distribution-iode.com/', t: 'Distribution préventive de comprimés d\'iode' },
 };
 const RISK_PAGE = (slug) => `${L_GR}/minformer-sur-un-risque/${slug}`;
 const lk = (k) => link(LINKS[k].u, LINKS[k].t);
@@ -555,6 +577,11 @@ const GLOSSARY = [
   ['SIS', 'Secteur d\'information sur les sols : terrain où l\'État a connaissance d\'une pollution justifiant une étude de sols en cas de changement d\'usage.'],
   ['BASOL et CASIAS', 'BASOL recense les sites pollués appelant une action des pouvoirs publics. CASIAS recense les anciens sites industriels et activités de service : y figurer ne signifie pas qu\'un site est pollué.'],
   ['TRACC', 'Trajectoire de réchauffement de référence pour l\'adaptation au changement climatique, retenue par l\'État : +2 °C en 2030, +2,7 °C en 2050 et +4 °C en 2100 en France métropolitaine, par rapport à l\'ère préindustrielle.'],
+  ['Cote de référence', 'Niveau d\'eau retenu par un PPR inondation pour l\'événement de référence. Le premier plancher des constructions autorisées doit souvent se situer au-dessus.'],
+  ['Zone refuge', 'Espace situé au-dessus des plus hautes eaux, accessible de l\'intérieur et ouvrable vers l\'extérieur pour l\'évacuation. Les PPR inondation l\'imposent souvent aux logements de plain-pied.'],
+  ['PPI', 'Plan particulier d\'intervention : plan de secours arrêté par le préfet autour d\'un site industriel ou nucléaire dangereux, qui organise l\'alerte, la mise à l\'abri et l\'évacuation.'],
+  ['PLU', 'Plan local d\'urbanisme, communal ou intercommunal (PLUi). Il divise le territoire en zones urbaines (U), à urbaniser (AU), agricoles (A) et naturelles et forestières (N), chacune dotée d\'un règlement.'],
+  ['Données carroyées', 'Statistiques de l\'INSEE diffusées sur une grille de carreaux de 200 m de côté, indépendante des limites communales, qui permet de localiser finement la population.'],
   ['Fonds Barnier', 'Fonds de prévention des risques naturels majeurs : il finance notamment des études et des travaux de réduction de la vulnérabilité des biens.'],
 ];
 
@@ -602,12 +629,25 @@ const RISKS = [
     regl: ['Un PPRT délimite des zones de maîtrise de l\'urbanisation et peut prescrire des travaux sur les logements.', 'Avant tout chantier, les travaux à proximité des réseaux doivent être déclarés aux exploitants (déclarations DT et DICT).'],
     reflexes: ['Reconnaître l\'alerte : la sirène émet trois séquences d\'un son montant et descendant de 1 minute 41 secondes, séparées de 5 secondes ; un message FR-Alert peut aussi arriver sur le téléphone.', 'Se mettre à l\'abri dans le bâtiment le plus proche, fermer portes et fenêtres, arrêter la ventilation.', 'Écouter la radio, ne pas aller chercher ses enfants à l\'école, ne téléphoner qu\'en cas d\'urgence vitale.'],
     links: [] },
+  { id: 'nucl', t: 'Risque nucléaire', page: null, pageUrl: 'https://www.distribution-iode.com/', pageLbl: 'Distribution-iode : réagir à une alerte nucléaire',
+    def: 'Accident survenant dans une installation nucléaire et pouvant conduire au rejet d\'éléments radioactifs dans l\'environnement.',
+    data: 'Installations nucléaires de base publiées par Géorisques et rayon de leur plan particulier d\'intervention (PPI).',
+    regl: ['Autour des installations, le préfet arrête un plan particulier d\'intervention qui organise l\'alerte, la mise à l\'abri et, si besoin, l\'évacuation.', 'Autour des centrales, le rayon du PPI est de 20 km ; les habitants y sont concernés par les campagnes de distribution préventive de comprimés d\'iode.'],
+    reflexes: ['À l\'alerte, se mettre à l\'abri dans un bâtiment, fermer portes et fenêtres et arrêter la ventilation.', 'Ne prendre le comprimé d\'iode que sur consigne du préfet.', 'Écouter la radio et ne pas aller chercher ses enfants à l\'école, où ils sont pris en charge.'],
+    links: ['asnr'] },
   { id: 'pol', t: 'Sites et sols pollués', page: null, pageUrl: L_GR + '/sites-et-sols-pollues-ou-potentiellement-pollues',
     def: 'Terrains dont le sol ou les eaux souterraines contiennent des substances issues d\'activités passées ou présentes, qui peuvent présenter un risque selon l\'usage.',
     data: 'Secteurs d\'information sur les sols (SIS), sites BASOL et anciens sites industriels CASIAS.',
     regl: ['Dans un SIS, une demande de permis de construire ou d\'aménager doit être accompagnée d\'une attestation d\'un bureau d\'études certifié garantissant la réalisation d\'une étude de sols.', 'L\'état des risques mentionne les SIS.'],
     reflexes: ['Avant un achat ou un changement d\'usage (jardin potager, école), consulter les fiches BASOL et CASIAS du terrain et des alentours.'],
     links: [] },
+];
+const READING = [
+  'Une carte d\'aléa décrit un phénomène possible, avec son intensité et sa probabilité ; une carte réglementaire, comme le zonage d\'un PPR, en tire des règles d\'urbanisme. Les deux ne se confondent pas.',
+  'Une période de retour exprime une probabilité annuelle : une crue centennale a une chance sur cent de survenir chaque année, et peut revenir deux années de suite.',
+  'Chaque carte a une échelle de validité. Une limite tracée au 1/25 000 représente une bande de plusieurs mètres sur le terrain : un bâtiment proche d\'une limite mérite la lecture du document source.',
+  'Un blanc sur une carte signifie souvent que le territoire n\'a pas été étudié. Vérifier la couverture de la source avant de conclure évite bien des contresens.',
+  'Les enjeux se mesurent autant que l\'aléa : nombre de logements, habitants, établissements accueillant des publics vulnérables, bâtiments sans étage refuge.',
 ];
 const PREPARE = [
   'Repérer les risques de sa commune : DICRIM en mairie, rapport Géorisques à son adresse.',
@@ -631,7 +671,7 @@ let CAPS = null;
 const RISK_RE = /zone_reg|ppr[nimtlsf]|ppri|pprt|al[ée]a|inond|submer|crue|ruissel|risque|mouvement|cavit|argil|feu de for|incendie/i;
 async function geopfCatalog(sig) {
   if (CAPS) return CAPS;
-  const t = await fetchText('https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities', sig, 90000);
+  const t = await fetchText('https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities', sig, 45000);
   const dec = (s) => (s || '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"');
   CAPS = [...t.matchAll(/<FeatureType[\s\S]*?<\/FeatureType>/g)].map((m) => {
     const x = m[0];
@@ -648,14 +688,14 @@ async function fetchLocalZones({ bb, sig }) {
   const out = [];
   await pool(hit, 4, async (l) => {
     try {
-      const j = await getJSON(GEOPF(l.name, bb, '&COUNT=3000'), sig, 60000);
+      const j = await getJSON(GEOPF(l.name, bb, '&COUNT=3000'), sig, 40000);
       for (const f of (j && j.features) || []) {
         if (!f.geometry || !/Polygon/.test(f.geometry.type)) continue;
         const p = f.properties || {};
         f.properties = { ...p, _title: l.title, _layer: l.name, _code: pick(p, ['codezone', 'code_zone', 'zone', 'typezone']), _typereg: pick(p, ['typereg', 'type_reg']).padStart(2, '0').replace(/^00$/, ''), _lib: pick(p, ['libelle', 'lib_zone', 'nomzone', 'nom', 'libzone']) };
         out.push(f);
       }
-    } catch (e) { if (e instanceof Cancelled) throw e; /* couche indisponible : les autres sont gardées */ }
+    } catch (e) { if (sig.aborted) throw e; /* couche sans réponse : les autres sont gardées */ }
   });
   return out;
 }
@@ -694,22 +734,22 @@ function normPPR(d, kind, insee) {
 }
 async function fetchProcedures({ sig, com }) {
   const out = [];
-  for (const kind of ['pprn', 'pprt', 'pprm']) {
+  await Promise.all(['pprn', 'pprt', 'pprm'].map(async (kind) => {
     const j = await getJSON(`${GR_API}gaspar/${kind}?codeInsee=${com.code}&page_size=50`, sig, 45000, true);
     const list = (j && j.content) || [];
     const det = await pool(list, 3, async (p) => {
       try { return await getJSON(`${GR_API}gaspar/${kind}/${encodeURIComponent(p.idGaspar)}`, sig, 45000); } catch (e) { if (e instanceof Cancelled) throw e; return p; }
     });
     det.forEach((d) => d && out.push(normPPR(d, kind, com.code)));
-  }
+  }));
   return out;
 }
 async function fetchGaspar({ sig, com }) {
-  const one = async (path) => { try { const j = await getJSON(GR_API + path, sig, 45000, true); return (j && j.data) || []; } catch (e) { if (e instanceof Cancelled) throw e; return null; } };
+  const one = async (path) => { try { const j = await getJSON(GR_API + path, sig, 30000, true); return (j && j.data) || []; } catch (e) { if (sig.aborted) throw e; return null; } };
   const [risques, tri, papi, azi, dicrim, tim, sism, radon, proc] = await Promise.all([
     one(`gaspar/risques?code_insee=${com.code}`), one(`gaspar/tri?code_insee=${com.code}`), one(`gaspar/papi?code_insee=${com.code}`),
     one(`gaspar/azi?code_insee=${com.code}`), one(`gaspar/dicrim?code_insee=${com.code}`), one(`gaspar/tim?code_insee=${com.code}`),
-    one(`zonage_sismique?code_insee=${com.code}`), one(`radon?code_insee=${com.code}`), fetchProcedures({ sig, com }),
+    one(`zonage_sismique?code_insee=${com.code}`), one(`radon?code_insee=${com.code}`), fetchProcedures({ sig, com }).catch((e) => { if (sig.aborted) throw e; return null; }),
   ]);
   return {
     risques: risques && risques[0] ? risques[0].risques_detail || [] : risques, tri, papi, azi, dicrim, tim, proc,
@@ -717,59 +757,173 @@ async function fetchGaspar({ sig, com }) {
   };
 }
 
-/* ---------- Registre des sources ---------- */
+/* ---------- Installations nucléaires : rayon du plan particulier d'intervention ----------
+   La couche de Géorisques donne la position des installations ; l'API donne,
+   commune par commune, le rayon du PPI fixé par l'État. Le PPI le plus étendu
+   (centrales) atteint 20 km : on cherche donc les installations dans cette marge. */
+async function fetchNuclear({ bb, sig }) {
+  const pts = await grWFS('INSTALLATIONS_NUCLEAIRES', padBox(bb, 20500), sig, 400);
+  const coms = [...new Set(pts.map((f) => f.properties.insee_com).filter(Boolean))];
+  const out = [];
+  await pool(coms, 3, async (c) => {
+    const j = await getJSON(`${GR_API}installations_nucleaires?code_insee=${c}&page_size=50`, sig, 45000, true);
+    for (const x of Array.isArray(j) ? j : (j && j.data) || []) if (x.longitude != null && x.latitude != null) out.push(x);
+  });
+  return out;
+}
+
+/* ---------- Registre des sources ----------
+   Chaque source porte sa fiche de lecture : comment la donnée est produite,
+   ce qu'elle permet de dire, ses limites, et l'adresse du service interrogé. */
+const SVC = {
+  geopf: { t: 'Service WFS de la Géoplateforme (IGN)', u: 'https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities' },
+  gr: { t: 'Service WFS de Géorisques', u: 'https://www.georisques.gouv.fr/services?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities' },
+  grapi: { t: 'API Géorisques', u: 'https://www.georisques.gouv.fr/doc-api' },
+  brgm: { t: 'Service WFS du BRGM', u: 'https://geoservices.brgm.fr/risques?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities' },
+  apicarto: { t: 'API Carto de l\'IGN, module Géoportail de l\'urbanisme', u: 'https://apicarto.ign.fr/' },
+  datagouv: { t: 'API de data.gouv.fr', u: 'https://www.data.gouv.fr/fr/apidoc/' },
+};
 const SOURCES = [
-  { id: 'bati', lbl: 'Bâtiments', org: 'IGN', prod: 'BD TOPO, classe bâtiment', link: 'bdtopo', scale: 'Bâtiment',
+  { id: 'bati', lbl: 'Bâtiments', org: 'IGN', prod: 'BD TOPO, classe bâtiment', link: 'bdtopo', scale: 'Bâtiment', svc: 'geopf', layer: 'BDTOPO_V3:batiment', deadline: 150000,
+    about: 'Description en trois dimensions des bâtiments de France, saisie par photogrammétrie et enrichie par les fichiers fonciers (nombre de logements, usage). Elle sert ici de base à tout le croisement.',
+    says: 'Usage, nombre de logements, nombre d\'étages, hauteur, altitude du sol, identifiant du Référentiel national des bâtiments.',
+    limits: 'Les attributs issus des fichiers fonciers sont parfois absents ou anciens ; la date d\'apparition sur le terrain, souvent tirée des fichiers fonciers, peut être absente ou approchée.',
     run: ({ bb, sig }) => geopfPaged('BDTOPO_V3:batiment', bb, sig, 15000, 'cleabs,nature,usage_1,usage_2,construction_legere,etat_de_l_objet,nombre_de_logements,nombre_d_etages,hauteur,date_d_apparition,altitude_minimale_sol,identifiants_rnb,geometrie') },
-  { id: 'equip', lbl: 'Établissements d\'enseignement, de santé, de secours et campings', org: 'IGN', prod: 'BD TOPO, zones d\'activité ou d\'intérêt', link: 'bdtopo', scale: 'Bâtiment',
+  { id: 'equip', lbl: 'Établissements d\'enseignement, de santé, de secours et campings', org: 'IGN', prod: 'BD TOPO, zones d\'activité ou d\'intérêt', link: 'bdtopo', scale: 'Bâtiment', svc: 'geopf', layer: 'BDTOPO_V3:zone_d_activite_ou_d_interet',
+    about: 'Emprises des écoles, établissements de santé, casernes, mairies et campings, saisies par l\'IGN.',
+    says: 'Permet de repérer les lieux qui accueillent des publics vulnérables ou qui servent à la gestion de crise.',
+    limits: 'L\'inventaire couvre les grandes catégories ; certains établissements récents ou de petite taille peuvent manquer.',
     run: ({ bb, sig }) => geopfPaged('BDTOPO_V3:zone_d_activite_ou_d_interet', bb, sig, 5000) },
-  { id: 'pm1', lbl: 'Plans de prévention des risques naturels et miniers', org: 'Services de l\'État', prod: 'Géoportail de l\'urbanisme, servitudes PM1', link: 'gpu', scale: 'Bâtiment',
+  { id: 'pm1', lbl: 'Plans de prévention des risques naturels et miniers', org: 'Services de l\'État', prod: 'Géoportail de l\'urbanisme, servitudes PM1', link: 'gpu', scale: 'Bâtiment', svc: 'apicarto',
+    about: 'Périmètres des PPR naturels et miniers versés au Géoportail de l\'urbanisme comme servitudes d\'utilité publique, avec le document officiel.',
+    says: 'Un bâtiment situé dans le périmètre relève du règlement du plan.',
+    limits: 'Le versement au Géoportail n\'est pas encore exhaustif ; le périmètre ne dit pas dans quelle zone du plan se trouve le bâtiment.',
     run: async ({ bb, sig }) => ((await getJSON(GPU('PM1', bb), sig)) || {}).features || [] },
-  { id: 'pm3', lbl: 'Plans de prévention des risques technologiques', org: 'Services de l\'État', prod: 'Géoportail de l\'urbanisme, servitudes PM3', link: 'gpu', scale: 'Bâtiment',
+  { id: 'pm3', lbl: 'Plans de prévention des risques technologiques', org: 'Services de l\'État', prod: 'Géoportail de l\'urbanisme, servitudes PM3', link: 'gpu', scale: 'Bâtiment', svc: 'apicarto',
+    about: 'Périmètres des PPRT, établis autour des sites Seveso seuil haut et versés au Géoportail de l\'urbanisme.',
+    says: 'Un bâtiment dans le périmètre peut être soumis à des travaux de renforcement prescrits par le plan.',
+    limits: 'Mêmes limites de versement que pour les PPR naturels.',
     run: async ({ bb, sig }) => ((await getJSON(GPU('PM3', bb), sig)) || {}).features || [] },
-  { id: 'zreg', lbl: 'Zonages réglementaires détaillés publiés localement', org: 'Services de l\'État', prod: 'Couches au standard CNIG de la Géoplateforme', link: 'geoplateforme', scale: 'Bâtiment',
+  { id: 'zreg', lbl: 'Zonages réglementaires des PPR publiés au standard national', org: 'Services de l\'État', prod: 'Couches au standard CNIG de la Géoplateforme', link: 'geoplateforme', scale: 'Bâtiment', svc: 'geopf',
+    about: 'Zones réglementaires des PPR que les directions départementales des territoires publient au standard national du CNIG, découvertes automatiquement dans le catalogue de la Géoplateforme.',
+    says: 'Type de règlement de la zone (prescriptions, interdiction, interdiction stricte), code de la zone et lien vers le règlement quand il est fourni.',
+    limits: 'Seule une partie des départements publie ces zonages ; ailleurs, seul le périmètre du plan est connu.',
     run: fetchLocalZones },
-  { id: 'tri', lbl: 'Surfaces inondables et hauteurs d\'eau des TRI', org: 'DREAL, ministère de la Transition écologique', prod: 'Directive inondation, rapportage 2020 (Géorisques)', link: 'georisques', scale: 'Bâtiment',
+  { id: 'tri', lbl: 'Surfaces inondables et hauteurs d\'eau des TRI', org: 'DREAL, ministère de la Transition écologique', prod: 'Directive inondation, rapportage 2020 (Géorisques)', link: 'georisques', scale: 'Bâtiment', svc: 'gr', layer: 'LIMITETRI_FXX', deadline: 120000,
+    about: 'Cartes produites pour la directive européenne inondation dans les territoires à risque important d\'inondation, par modélisation hydraulique et analyse des crues historiques.',
+    says: 'Surface inondable pour les scénarios fréquent, moyen, moyen avec changement climatique et extrême, classes de hauteur d\'eau, ouvrages de protection.',
+    limits: 'Seuls les TRI sont cartographiés ; ces cartes informent et n\'ont pas la valeur réglementaire d\'un PPR.',
     run: async ({ bb, sig }) => {
       const lim = await grWFS('LIMITETRI_FXX', bb, sig, 50);
       if (!lim.length) return { tri: [], layers: {} };
       const layers = {};
-      await pool(TRI_LAYERS, 4, async (l) => { layers[l.id] = await grWFS(l.id, bb, sig); });
+      // une couche qui ne répond pas est notée sans faire échouer les autres
+      const miss = [];
+      await pool(TRI_LAYERS, 5, async (l) => { try { layers[l.id] = await grWFS(l.id, bb, sig); } catch (e) { if (sig.aborted) throw e; miss.push(l.id); layers[l.id] = []; } });
+      if (miss.length === TRI_LAYERS.length) throw new Error('aucune couche des TRI n\'a répondu');
       const ouv = await grWFS('OUV_PROTECTION_FXX', padBox(bb, 300), sig).catch((e) => { if (e instanceof Cancelled) throw e; return []; });
-      return { tri: lim.map((f) => f.properties), layers, ouv };
+      return { tri: lim.map((f) => f.properties), layers, ouv, miss };
     } },
-  { id: 'zich', lbl: 'Zones d\'inondation cartographiées par Vigicrues', org: 'Réseau Vigicrues', prod: 'Zones d\'inondation (ZICH) de la Géoplateforme', link: 'vigicrues', scale: 'Bâtiment',
+  { id: 'zich', lbl: 'Zones d\'inondation cartographiées par Vigicrues', org: 'Réseau Vigicrues', prod: 'Zones d\'inondation (ZICH) de la Géoplateforme', link: 'vigicrues', scale: 'Bâtiment', svc: 'geopf', layer: 'VIGINOND-DIFFUSION:zich',
+    about: 'Cartes établies par les services de prévision des crues : pour chaque hauteur d\'eau à une station de référence, l\'emprise inondée correspondante.',
+    says: 'La hauteur à la station à partir de laquelle le bâtiment est atteint, et la classe de hauteur d\'eau dans la zone.',
+    limits: 'Seuls certains tronçons surveillés sont cartographiés ; les zones signalées à part ne portent pas de hauteur.',
     run: async ({ bb, sig }) => ((await getJSON(GEOPF('VIGINOND-DIFFUSION:zich', bb, '&COUNT=3000'), sig, 90000)) || {}).features || [] },
-  { id: 'argile', lbl: 'Exposition au retrait-gonflement des argiles', org: 'BRGM', prod: 'Carte d\'exposition (2019)', link: 'georisques', scale: 'Bâtiment',
+  { id: 'argile', lbl: 'Exposition au retrait-gonflement des argiles', org: 'BRGM', prod: 'Carte d\'exposition (2019)', link: 'georisques', scale: 'Bâtiment', svc: 'brgm', layer: 'ALEARG_REALISE',
+    about: 'Carte nationale qui combine la susceptibilité géologique des sols argileux et la sinistralité observée, publiée en 2019 pour l\'application de la loi ELAN.',
+    says: 'Exposition faible, moyenne ou forte du terrain.',
+    limits: 'Carte établie à l\'échelle du 1/50 000 : elle oriente vers une étude de sol et ne remplace pas une étude géotechnique.',
     run: async ({ bb, sig }) => (((await getJSON(BRGM('ALEARG_REALISE', bb, 3000), sig, 90000)) || {}).features || []).map((f) => ({ type: 'Feature', geometry: f.geometry, properties: { id: +f.properties.id || 0 } })) },
-  { id: 'foret', lbl: 'Forêts et landes', org: 'IGN', prod: 'BD TOPO, zones de végétation', link: 'bdtopo', scale: 'Bâtiment',
+  { id: 'foret', lbl: 'Forêts et landes', org: 'IGN', prod: 'BD TOPO, zones de végétation', link: 'bdtopo', scale: 'Bâtiment', svc: 'geopf', layer: 'BDTOPO_V3:zone_de_vegetation',
+    about: 'Zones de végétation de la BD TOPO, dont on retient les forêts, bois et landes.',
+    says: 'Présence de végétation combustible à proximité du bâtiment.',
+    limits: 'Une forêt proche ne crée pas à elle seule d\'obligation de débroussaillement : celle-ci dépend des massifs désignés par arrêté.',
     run: async ({ bb, sig }) => (await geopfPaged('BDTOPO_V3:zone_de_vegetation', padBox(bb, R_OLD + 20), sig, 10000, 'nature,geometrie')).filter((f) => /for[êe]t|bois|lande/i.test(f.properties.nature || '')) },
-  { id: 'old', lbl: 'Massifs soumis aux obligations légales de débroussaillement', org: 'DDT(M), IGN', prod: 'Zonage des OLD (Géoplateforme)', link: 'geoplateforme', scale: 'Bâtiment',
+  { id: 'old', lbl: 'Massifs soumis aux obligations légales de débroussaillement', org: 'DDT(M), IGN', prod: 'Zonage des OLD (Géoplateforme)', link: 'feux', scale: 'Bâtiment', svc: 'geopf', layer: 'DEBROUSSAILLEMENT:debroussaillement',
+    about: 'Massifs forestiers désignés par arrêté préfectoral, autour desquels s\'appliquent les obligations légales de débroussaillement.',
+    says: `Un terrain à moins de ${R_OLD} m d'un massif est soumis aux obligations ; la date de l'arrêté et la page de la préfecture sont jointes.`,
+    limits: 'La couche nationale est récente et sa complétude varie selon les départements.',
     run: ({ bb, sig }) => geopfPaged('DEBROUSSAILLEMENT:debroussaillement', padBox(bb, R_OLD + 20), sig, 10000) },
-  { id: 'cavite', lbl: 'Cavités souterraines', org: 'BRGM', prod: 'BDCavité (API Géorisques)', link: 'georisques', scale: 'Bâtiment',
+  { id: 'cavite', lbl: 'Cavités souterraines', org: 'BRGM', prod: 'BDCavité (API Géorisques)', link: 'infoterre', scale: 'Bâtiment', svc: 'grapi',
+    about: 'Inventaire national des cavités d\'origine naturelle ou humaine (carrières, marnières, caves, ouvrages militaires), alimenté par les études départementales et les signalements.',
+    says: 'Type de cavité, nom, précision du repérage.',
+    limits: 'Un inventaire, par nature incomplet : de nombreuses cavités restent inconnues.',
     run: ({ bb, sig }) => { const c = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2]; const r = Math.ceil(distM(c, [bb[2], bb[3]]) + R_PT); return grPaged(`cavites?latlon=${c[0].toFixed(5)},${c[1].toFixed(5)}&rayon=${r}`, sig, 30); } },
-  { id: 'mvt', lbl: 'Mouvements de terrain', org: 'BRGM', prod: 'BDMvt (API Géorisques)', link: 'georisques', scale: 'Bâtiment',
+  { id: 'mvt', lbl: 'Mouvements de terrain', org: 'BRGM', prod: 'BDMvt (API Géorisques)', link: 'infoterre', scale: 'Bâtiment', svc: 'grapi',
+    about: 'Inventaire des glissements, éboulements, coulées, effondrements et érosions de berges connus, avec leur date quand elle est documentée.',
+    says: 'Type d\'événement, date, fiabilité de l\'information.',
+    limits: 'Recense les événements signalés, sans exhaustivité ni cartographie de l\'aléa.',
     run: ({ bb, sig }) => { const c = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2]; const r = Math.ceil(distM(c, [bb[2], bb[3]]) + R_PT); return grPaged(`mvt?latlon=${c[0].toFixed(5)},${c[1].toFixed(5)}&rayon=${r}`, sig, 30); } },
-  { id: 'ssp', lbl: 'Sites et sols pollués (SIS, BASOL, CASIAS)', org: 'Ministère de la Transition écologique, BRGM', prod: 'Géorisques', link: 'georisques', scale: 'Bâtiment',
+  { id: 'eau', lbl: 'Cours d\'eau, canaux et plans d\'eau', org: 'IGN', prod: 'BD TOPO, tronçons et surfaces hydrographiques', link: 'bdtopo', scale: 'Bâtiment', svc: 'geopf', layer: 'BDTOPO_V3:troncon_hydrographique',
+    about: 'Réseau hydrographique de la BD TOPO, cohérent avec le référentiel national des cours d\'eau.',
+    says: `Nom, nature (cours d'eau, canal, plan d'eau) et caractère permanent ou intermittent de l'eau la plus proche, dans un rayon de ${R_EAU} m.`,
+    limits: 'La distance à l\'eau décrit le site ; elle ne délimite aucune zone inondable.',
+    run: async ({ bb, sig }) => {
+      const big = padBox(bb, R_EAU + 20);
+      const [t, s] = await Promise.all([
+        geopfPaged('BDTOPO_V3:troncon_hydrographique', big, sig, 10000, 'nature,persistance,fictif,cpx_toponyme_de_cours_d_eau,geometrie'),
+        geopfPaged('BDTOPO_V3:surface_hydrographique', big, sig, 5000, 'nature,persistance,cpx_toponyme_de_plan_d_eau,cpx_toponyme_de_cours_d_eau,geometrie'),
+      ]);
+      return t.filter((f) => !f.properties.fictif).concat(s);
+    } },
+  { id: 'ssp', lbl: 'Sites et sols pollués (SIS, BASOL, CASIAS)', org: 'Ministère de la Transition écologique, BRGM', prod: 'Géorisques', link: 'georisques', scale: 'Bâtiment', svc: 'gr', layer: 'SSP_CLASSIF_SIS_GE',
+    about: 'Secteurs d\'information sur les sols arrêtés par le préfet, sites pollués suivis par l\'administration (ex-BASOL) et inventaire historique des anciennes activités industrielles et de service (CASIAS).',
+    says: 'Situation du bâtiment dans un secteur ou un site, et distance aux anciennes activités recensées.',
+    limits: 'CASIAS garde la mémoire d\'une activité passée sans établir de pollution.',
     run: async ({ bb, sig }) => {
       const big = padBox(bb, R_PT);
       const [sis, basol, casias] = await Promise.all([grWFS('SSP_CLASSIF_SIS_GE', bb, sig), grWFS('SSP_INSTR_GE_POLYGONE', bb, sig), grWFS('SSP_ETS_GE_POINT', big, sig)]);
       return { sis, basol, casias };
     } },
-  { id: 'canal', lbl: 'Canalisations de transport de matières dangereuses', org: 'Ministère de la Transition écologique', prod: 'Géorisques', link: 'georisques', scale: 'Bâtiment',
+  { id: 'canal', lbl: 'Canalisations de transport de matières dangereuses', org: 'Ministère de la Transition écologique', prod: 'Géorisques', link: 'georisques', scale: 'Bâtiment', svc: 'gr', layer: 'C_GAZ',
+    about: 'Tracés des canalisations de gaz, d\'hydrocarbures et de produits chimiques déclarés par les transporteurs.',
+    says: 'Fluide transporté, transporteur et distance au bâtiment.',
+    limits: 'Le tracé est indicatif ; les servitudes d\'utilité publique qui l\'entourent se lisent dans le document d\'urbanisme.',
     run: async ({ bb, sig }) => {
       const big = padBox(bb, R_PT);
       const r = await Promise.all(['C_GAZ', 'C_HYDROCARBURES', 'C_PRODUITS_CHIM'].map((t) => grWFS(t, big, sig)));
       return r.flat();
     } },
-  { id: 'gaspar', lbl: 'Risques, plans de prévention et documents de la commune', org: 'Services de l\'État', prod: 'Base GASPAR (API Géorisques)', link: 'donnees', scale: 'Commune', needCom: true, run: fetchGaspar },
-  { id: 'catnat', lbl: 'Arrêtés de catastrophe naturelle', org: 'Ministère de l\'Intérieur', prod: 'Base GASPAR (API Géorisques)', link: 'ccr', scale: 'Commune', needCom: true,
+  { id: 'inb', lbl: 'Installations nucléaires et rayon de leur plan particulier d\'intervention', org: 'ASNR, préfectures', prod: 'Géorisques, installations nucléaires de base', link: 'asnr', scale: 'Bâtiment', svc: 'grapi',
+    about: 'Position des installations nucléaires de base et rayon du plan particulier d\'intervention (PPI) arrêté par le préfet autour de chacune.',
+    says: 'Le bâtiment se trouve, ou non, à l\'intérieur du rayon PPI mesuré depuis la position publiée de l\'installation ; Géorisques précise si un risque iode est retenu.',
+    limits: 'Le périmètre exact du PPI est fixé par arrêté et suit parfois les limites communales : la distance au point publié en donne une lecture approchée.',
+    run: fetchNuclear },
+  { id: 'insee', lbl: 'Habitants et logements par carreau de 200 m', org: 'INSEE', prod: 'Filosofi, données carroyées à 200 m (Géoplateforme)', link: 'insee', scale: 'Carreau de 200 m', svc: 'geopf', layer: 'INSEE.FILOSOFI.INDICATORS:carreaux_200m',
+    about: 'Statistiques issues des déclarations fiscales et sociales, agrégées sur une grille de carreaux de 200 m de côté.',
+    says: 'Nombre d\'habitants par tranche d\'âge, ménages, ménages pauvres, logements sociaux, époque de construction des logements.',
+    limits: 'Les valeurs sont celles du carreau entier, pas du bâtiment. Pour respecter le secret statistique, les carreaux de moins de 11 ménages portent des valeurs imputées, d\'où des décimales.',
+    run: ({ bb, sig }) => geopfPaged('INSEE.FILOSOFI.INDICATORS:carreaux_200m', padBox(bb, 150), sig, 5000) },
+  { id: 'plu', lbl: 'Zones des plans locaux d\'urbanisme', org: 'Collectivités', prod: 'Géoportail de l\'urbanisme, zonage des PLU et PLUi', link: 'gpu', scale: 'Parcelle', svc: 'geopf', layer: 'wfs_du:zone_urba',
+    about: 'Zonage des documents d\'urbanisme versés au Géoportail de l\'urbanisme par les communes et intercommunalités.',
+    says: 'Type de zone (urbaine, à urbaniser, agricole, naturelle), libellé, date de validité et lien vers le règlement de la zone.',
+    limits: 'Les communes au règlement national d\'urbanisme ou à la carte communale n\'ont pas de zonage PLU.',
+    run: ({ bb, sig }) => geopfPaged('wfs_du:zone_urba', bb, sig, 5000) },
+  { id: 'gaspar', lbl: 'Risques, plans de prévention et documents de la commune', org: 'Services de l\'État', prod: 'Base GASPAR (API Géorisques)', link: 'donnees', scale: 'Commune', needCom: true, svc: 'grapi',
+    about: 'Base nationale de gestion assistée des procédures administratives relatives aux risques, tenue par les services de l\'État.',
+    says: 'Risques recensés dans la commune, état et dates des plans de prévention, TRI, PAPI, atlas des zones inondables, DICRIM, zonage sismique, potentiel radon.',
+    limits: 'Renseigne l\'existence des procédures et documents ; leur contenu se consulte dans les documents eux-mêmes.',
+    run: fetchGaspar },
+  { id: 'catnat', lbl: 'Arrêtés de catastrophe naturelle', org: 'Ministère de l\'Intérieur', prod: 'Base GASPAR (API Géorisques)', link: 'ccr', scale: 'Commune', needCom: true, svc: 'grapi',
+    about: 'Arrêtés interministériels reconnaissant l\'état de catastrophe naturelle, publiés au Journal officiel depuis 1982.',
+    says: 'Type d\'événement, période, date de publication.',
+    limits: 'Un arrêté suppose une demande de la commune : leur nombre reflète aussi les démarches engagées.',
     run: ({ sig, com }) => grPaged(`gaspar/catnat?code_insee=${com.code}`, sig, 10) },
-  { id: 'icpe', lbl: 'Installations classées', org: 'Inspection des installations classées', prod: 'API Géorisques', link: 'donnees', scale: 'Commune', needCom: true,
+  { id: 'icpe', lbl: 'Installations classées', org: 'Inspection des installations classées', prod: 'API Géorisques', link: 'donnees', scale: 'Commune', needCom: true, svc: 'grapi',
+    about: 'Installations soumises à autorisation, enregistrement ou déclaration au titre de la protection de l\'environnement, dont les établissements Seveso.',
+    says: 'Régime, statut Seveso, état d\'activité et fiche détaillée de chaque installation.',
+    limits: 'La position est celle déclarée par l\'exploitant ; les installations soumises à simple déclaration sont rarement présentes.',
     run: ({ sig, com }) => grPaged(`installations_classees?code_insee=${com.code}`, sig, 10) },
-  { id: 'urba', lbl: 'Documents d\'urbanisme', org: 'Collectivités', prod: 'Géoportail de l\'urbanisme', link: 'gpu', scale: 'Zone',
+  { id: 'urba', lbl: 'Documents d\'urbanisme', org: 'Collectivités', prod: 'Géoportail de l\'urbanisme', link: 'gpu', scale: 'Zone', svc: 'apicarto',
+    about: 'Documents d\'urbanisme opposables (PLU, PLUi, carte communale) publiés sur le Géoportail de l\'urbanisme.',
+    says: 'Type et nom du document en vigueur sur la zone.',
+    limits: 'Seuls les documents versés au Géoportail apparaissent.',
     run: async ({ bb, sig }) => (((await getJSON('https://apicarto.ign.fr/api/gpu/document?geom=' + encodeURIComponent(JSON.stringify(boxPoly(bb))), sig)) || {}).features || []).map((f) => f.properties) },
-  { id: 'catalogue', lbl: 'Jeux de données publiés pour la commune', org: 'Producteurs publics', prod: 'data.gouv.fr', link: 'datagouv', scale: 'Commune', needCom: true, run: fetchCatalogue },
+  { id: 'catalogue', lbl: 'Jeux de données publiés pour la commune', org: 'Producteurs publics', prod: 'data.gouv.fr', link: 'datagouv', scale: 'Commune', needCom: true, svc: 'datagouv',
+    about: 'Recherche, sur la plateforme nationale des données ouvertes, des jeux de données sur les risques qui citent la commune.',
+    says: 'Études, atlas et zonages complémentaires publiés par les services de l\'État ou les collectivités.',
+    limits: 'Recherche par mots-clés : la liste peut être incomplète ou inclure des jeux voisins.',
+    run: fetchCatalogue },
 ];
 const SRC = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
 
@@ -794,6 +948,10 @@ function buildIndex() {
     sis: prep(D.ssp && D.ssp.sis), basol: prep(D.ssp && D.ssp.basol),
     casias: ((D.ssp && D.ssp.casias) || []).filter((f) => f.geometry && f.geometry.type === 'Point').map((f) => ({ c: f.geometry.coordinates, p: f.properties })),
     canal: prep(D.canal, null, R_PT),
+    eau: prep(D.eau, null, R_EAU),
+    car: prep(D.insee),
+    plu: prep((D.plu || []).slice().sort((a, b) => String(b.properties.datvalid || '').localeCompare(String(a.properties.datvalid || '')))),
+    inb: (D.inb || []).filter((x) => x.ppi && +x.rayon_ppi > 0).map((x) => ({ c: [+x.longitude, +x.latitude], p: x })),
     equip: prep((D.equip || []).map((f) => { const p = f.properties; const g = GROUPS.find((x) => x.re.test([p.nature, p.nature_detaillee, p.categorie].join(' '))); return g ? { ...f, properties: { ...p, _grp: g.id } } : null; }).filter(Boolean)),
   };
 }
@@ -820,20 +978,25 @@ function assess(c) {
   r.cav = nearPts(c, I.cav, R_PT); r.mvt = nearPts(c, I.mvt, R_PT);
   r.sis = hitsOf(c, I.sis); r.basol = hitsOf(c, I.basol); r.casias = nearPts(c, I.casias, R_PT);
   r.canal = nearOf(c, I.canal, R_PT);
+  const w = nearOf(c, I.eau, R_EAU); r.eau = w.length ? w[0] : null;
+  r.car = hitsOf(c, I.car)[0] || null;
+  r.plu = hitsOf(c, I.plu)[0] || null;
+  r.ppi = I.inb.map((x) => ({ d: distM(c, x.c), p: x.p })).filter((x) => x.d <= +x.p.rayon_ppi).sort((a, b) => a.d - b.d);
   return r;
 }
 const IND = [
   { id: 'reg', lbl: 'Dans le périmètre d\'un plan de prévention des risques', src: ['pm1', 'pm3'], test: (b) => b.pm1.length || b.pm3.length },
-  { id: 'zreg', lbl: 'Dans une zone d\'un zonage réglementaire détaillé', src: ['zreg'], test: (b) => b.zreg.length },
-  { id: 'tri', lbl: 'Dans une surface inondable d\'un TRI (au moins un scénario)', src: ['tri'], test: (b) => b.triFirst },
+  { id: 'zreg', lbl: 'Dans une zone réglementaire de PPR publiée au standard national', src: ['zreg'], test: (b) => b.zreg.length },
+  { id: 'tri', lbl: 'Dans une surface inondable d\'un TRI, tous scénarios', src: ['tri'], test: (b) => b.triFirst },
   { id: 'trimoy', lbl: 'dont scénario fréquent ou moyen', src: ['tri'], test: (b) => b.triFirst === 'FOR' || b.triFirst === 'MOY', sub: true },
-  { id: 'zich', lbl: 'Dans une zone inondée cartographiée par Vigicrues (avec hauteur d\'eau)', src: ['zich'], test: (b) => b.zich.some(isZin) },
-  { id: 'zichx', lbl: 'dans une zone signalée à part sur une carte Vigicrues (incertitude, arrière de digue…)', src: ['zich'], test: (b) => b.zich.length && !b.zich.some(isZin), sub: true },
+  { id: 'zich', lbl: 'Dans une zone inondée d\'une carte Vigicrues', src: ['zich'], test: (b) => b.zich.some(isZin) },
+  { id: 'zichx', lbl: 'dans une zone que Vigicrues signale à part (incertitude, arrière de digue)', src: ['zich'], test: (b) => b.zich.length && !b.zich.some(isZin), sub: true },
   { id: 'arg', lbl: 'Exposition moyenne ou forte au retrait-gonflement des argiles', src: ['argile'], test: (b) => b.arg >= 2 },
   { id: 'old', lbl: `À moins de ${R_OLD} m d'un massif soumis aux obligations de débroussaillement`, src: ['old'], test: (b) => b.old != null },
   { id: 'sol', lbl: `Cavité ou mouvement de terrain recensé à moins de ${R_PT} m`, src: ['cavite', 'mvt'], test: (b) => b.cav.length || b.mvt.length },
   { id: 'pol', lbl: 'Dans un secteur d\'information sur les sols ou un site BASOL', src: ['ssp'], test: (b) => b.sis.length || b.basol.length },
   { id: 'canal', lbl: `Canalisation de matières dangereuses à moins de ${R_PT} m`, src: ['canal'], test: (b) => b.canal.length },
+  { id: 'ppi', lbl: 'Dans le rayon du plan particulier d\'intervention d\'une installation nucléaire', src: ['inb'], test: (b) => b.ppi.length },
 ];
 const COUNTED = IND.filter((x) => !x.sub);
 function cross() {
@@ -843,7 +1006,7 @@ function cross() {
     const p = f.properties, c = centroid(f.geometry);
     const b = { i, id: p.cleabs, rnb: (p.identifiants_rnb || '').split('/')[0] || null, usage: p.usage_1 || 'Indifférencié', usage2: p.usage_2, nature: p.nature,
       log: +p.nombre_de_logements || 0, et: p.nombre_d_etages != null ? +p.nombre_d_etages : null, h: p.hauteur != null ? +p.hauteur : null,
-      app: (p.date_d_apparition || '').slice(0, 4), alt: p.altitude_minimale_sol, leger: p.construction_legere, etat: p.etat_de_l_objet, c, geom: f.geometry };
+      app: (p.date_d_apparition || '').slice(0, 4), alt: p.altitude_minimale_sol != null && p.altitude_minimale_sol !== '' ? +p.altitude_minimale_sol : null, leger: p.construction_legere, etat: p.etat_de_l_objet, c, geom: f.geometry };
     Object.assign(b, c ? assess(c) : assess([0, 0]));
     b.n = COUNTED.filter((x) => x.test(b)).length;
     b.etab = c ? hitsOf(c, I.equip)[0] || null : null;
@@ -861,31 +1024,46 @@ function cross() {
 }
 
 /* ---------- Lectures cartographiques ----------
-   Chaque lecture reprend les classes de la source, sans les combiner en
-   « niveau de risque ». */
+   Chaque lecture reprend les classes de sa source, sans les combiner entre
+   elles. « note » décrit ce que montre la couleur ; « read » donne les clés
+   pour l'interpréter. */
 const GREY = '#d5dad7', NA = '#f1f1ef';
+const PLU_TYP = { U: 'Zone urbaine (U)', AUc: 'Zone à urbaniser ouverte (AU)', AUs: 'Zone à urbaniser fermée (AU stricte)', A: 'Zone agricole (A)', N: 'Zone naturelle et forestière (N)' };
+const pluKey = (p) => { const t = String((p && p.typezone) || '').trim(); return t === 'AU' ? 'AUc' : PLU_TYP[t] ? t : t ? 'x' : 0; };
+const popOf = (b) => (b.car ? +b.car.ind || 0 : null);
+let ALT = null;
+function altBreaks() {
+  const v = S.B.map((b) => b.alt).filter((x) => x != null && isFinite(x)).sort((a, b) => a - b);
+  if (v.length < 5) return null;
+  const q = [0.2, 0.4, 0.6, 0.8].map((f) => v[Math.floor(f * (v.length - 1))]);
+  return [v[0], ...q, v[v.length - 1]];
+}
 const LENSES = [
-  { id: 'count', lbl: 'Nombre d\'informations relevées', src: COUNTED.flatMap((x) => x.src),
-    note: 'Nombre de sources qui signalent le bâtiment (liste dans l\'onglet Synthèse). Ce n\'est pas un niveau de risque : chaque information est à lire dans la fiche.',
-    classes: () => [0, 1, 2, 3, 4, 5].map((k, j) => ({ k, lbl: k === 0 ? 'Aucune' : k === 5 ? '5 ou plus' : String(k), col: ['#e3e7e5', '#c6d4ec', '#93aedb', '#5f80c4', '#35539f', '#1d2f6b'][j] })),
+  { id: 'count', lbl: 'Cumul des informations relevées', src: COUNTED.flatMap((x) => x.src),
+    note: `Combien des ${COUNTED.length} informations croisées concernent chaque bâtiment : plan de prévention, zone inondable, argiles, cavités, débroussaillement, pollution des sols, canalisation, installation nucléaire.`,
+    read: 'Le cumul repère les bâtiments où plusieurs documents se superposent, et donc où la lecture de la fiche s\'impose. Il ne hiérarchise pas les dangers : une seule information, comme une zone d\'interdiction stricte d\'un PPR inondation, peut peser davantage que trois constats plus modestes réunis.',
+    classes: () => [0, 1, 2, 3, 4, 5].map((k, j) => ({ k, lbl: k === 0 ? 'Aucune information' : k === 5 ? 'Cinq ou plus' : k === 1 ? 'Une information' : `${['', '', 'Deux', 'Trois', 'Quatre'][k]} informations`, col: ['#e3e7e5', '#c6d4ec', '#93aedb', '#5f80c4', '#35539f', '#1d2f6b'][j] })),
     of: (b) => Math.min(5, b.n) },
   { id: 'reg', lbl: 'Plans de prévention des risques', src: ['pm1', 'pm3', 'zreg'],
-    note: 'Zone du règlement quand le zonage détaillé est publié au standard CNIG, sinon périmètre du plan. Le règlement du plan (PDF) fait foi.',
+    note: 'Zone du règlement quand le plan publie son zonage au standard national ; à défaut, situation dans ou hors du périmètre du plan.',
+    read: 'Le zonage d\'un PPR traduit l\'aléa et les enjeux en règles d\'urbanisme. En zone d\'interdiction, souvent rouge sur les cartes, les constructions nouvelles sont en principe exclues ; en zone de prescriptions, souvent bleue, elles restent possibles sous conditions, par exemple un premier plancher au-dessus de la cote de référence. Seul le règlement écrit, accessible depuis la fiche, fait foi.',
     classes: () => [
       { k: 'z04', lbl: 'Zone d\'interdiction stricte', col: '#5c0f1a' }, { k: 'z03', lbl: 'Zone d\'interdiction', col: '#c0392b' },
-      { k: 'z02', lbl: 'Zone de prescriptions', col: '#3a7bd5' }, { k: 'zx', lbl: 'Zone d\'un zonage local (détail dans la fiche)', col: '#9b8fc7' },
+      { k: 'z02', lbl: 'Zone de prescriptions', col: '#3a7bd5' }, { k: 'zx', lbl: 'Zone d\'un zonage local, détaillée dans la fiche', col: '#9b8fc7' },
       { k: 'pm3', lbl: 'Périmètre d\'un plan technologique (PPRT)', col: '#7a3fa0' }, { k: 'pm1', lbl: 'Périmètre d\'un plan naturel ou minier', col: '#e8a33d' },
       { k: 0, lbl: 'Hors des plans publiés', col: GREY }],
     of: (b) => {
       const t = b.zreg.map((z) => z._typereg).filter((x) => TYPEREG[x]).sort().pop();
       return t ? 'z' + t : b.zreg.length ? 'zx' : b.pm3.length ? 'pm3' : b.pm1.length ? 'pm1' : 0;
     } },
-  { id: 'tri', lbl: 'Inondation : scénarios des TRI', src: ['tri'],
-    note: 'Premier scénario de la directive inondation qui atteint le bâtiment. Les TRI ne couvrent qu\'une partie du territoire.',
+  { id: 'tri', lbl: 'Inondation, scénarios des TRI', src: ['tri'],
+    note: 'Scénario le plus fréquent dont la surface inondable atteint le bâtiment, d\'après les cartes des territoires à risque important d\'inondation.',
+    read: 'Le scénario fréquent correspond à une crue qui revient en moyenne tous les 10 à 30 ans, le moyen à une crue de période de retour de 100 à 300 ans, l\'extrême à une crue au moins millénale. Un bâtiment atteint dès le scénario fréquent a de bonnes chances de connaître l\'eau au cours d\'une vie. Ces cartes informent ; la portée réglementaire revient au PPR.',
     classes: () => [...SC_ORDER.map((s, j) => ({ k: s, lbl: TRI_SCEN[j].lbl, col: ['#08306b', '#2171b5', '#6baed6', '#c6dbef'][j] })), { k: 0, lbl: 'Hors des surfaces inondables cartographiées', col: GREY }],
-    of: (b) => b.triFirst || 0, empty: () => S.data.tri && !S.data.tri.tri.length ? 'La zone n\'est pas dans un territoire à risque important d\'inondation : pas de cartographie TRI ici.' : '' },
-  { id: 'triht', lbl: 'Inondation : hauteur d\'eau, scénario moyen (TRI)', src: ['tri'],
-    note: 'Classe de hauteur d\'eau publiée pour l\'événement moyen (centennal), tous types d\'inondation confondus ; la plus haute est retenue.',
+    of: (b) => b.triFirst || 0, empty: () => S.data.tri && !S.data.tri.tri.length ? 'La zone se trouve hors des territoires à risque important d\'inondation, qui sont les seuls cartographiés selon ces scénarios.' : '' },
+  { id: 'triht', lbl: 'Inondation, hauteur d\'eau du scénario moyen', src: ['tri'],
+    note: 'Classe de hauteur d\'eau publiée pour le scénario moyen, tous types d\'inondation confondus ; la plus haute est retenue quand plusieurs se superposent.',
+    read: 'Quelques repères diffusés par les services de prévention aident à lire ces classes : 30 cm d\'eau suffisent à emporter une voiture, à 50 cm un adulte peine à marcher dans le courant, au-delà d\'un mètre le rez-de-chaussée n\'offre plus d\'abri et seul l\'étage protège.',
     classes: () => {
       const ks = new Map();
       for (const b of S.B) { const v = htMoy(b); if (v) ks.set(v.join('|'), v); }
@@ -893,35 +1071,67 @@ const LENSES = [
       const ramp = ['#c6dbef', '#9ecae1', '#6baed6', '#3182bd', '#08519c', '#08306b'];
       return arr.map((v, j) => ({ k: v.join('|'), lbl: htLbl(v), col: ramp[Math.round(j * (ramp.length - 1) / Math.max(1, arr.length - 1))] })).concat([{ k: 0, lbl: 'Pas de hauteur publiée à cet endroit', col: GREY }]);
     },
-    of: (b) => { const v = htMoy(b); return v ? v.join('|') : 0; }, empty: () => S.data.tri && !S.data.tri.tri.length ? 'Pas de TRI dans cette zone.' : '' },
-  { id: 'zich', lbl: 'Inondation : zones Vigicrues', src: ['zich'],
-    note: 'Cartes des zones inondées associées à une hauteur d\'eau à une station de référence. Certaines zones sont signalées à part par la carte (zones d\'incertitude, arrière de digue) : elles ne portent pas de hauteur d\'eau.',
-    classes: () => [{ k: 1, lbl: 'Dans une zone inondée cartographiée', col: '#2f78bf' }, { k: 2, lbl: 'Dans une zone signalée à part par la carte', col: '#9fb0c8' }, { k: 0, lbl: 'Hors des zones cartographiées', col: GREY }],
-    of: (b) => (b.zich.some(isZin) ? 1 : b.zich.length ? 2 : 0), empty: () => (S.data.zich && !S.data.zich.length ? 'Aucune zone Vigicrues dans cette zone : seuls les tronçons surveillés et étudiés sont cartographiés.' : '') },
+    of: (b) => { const v = htMoy(b); return v ? v.join('|') : 0; }, empty: () => S.data.tri && !S.data.tri.tri.length ? 'Hauteurs d\'eau publiées seulement dans les territoires à risque important d\'inondation.' : '' },
+  { id: 'zich', lbl: 'Inondation, zones Vigicrues', src: ['zich'],
+    note: 'Zones inondées cartographiées par Vigicrues, chacune liée à une hauteur d\'eau à une station de référence. Les zones signalées à part (incertitude, arrière de digue) ne portent pas de hauteur.',
+    read: 'Ces cartes servent l\'anticipation : quand la prévision annonce une hauteur à la station, elles montrent les rues qui seront sous l\'eau. Plus la hauteur à la station qui suffit à atteindre le bâtiment est basse, plus il est touché tôt ; elle figure dans sa fiche.',
+    classes: () => [{ k: 1, lbl: 'Dans une zone inondée cartographiée', col: '#2f78bf' }, { k: 2, lbl: 'Dans une zone signalée à part', col: '#9fb0c8' }, { k: 0, lbl: 'Hors des zones cartographiées', col: GREY }],
+    of: (b) => (b.zich.some(isZin) ? 1 : b.zich.length ? 2 : 0), empty: () => (S.data.zich && !S.data.zich.length ? 'Aucune carte Vigicrues ici : seuls certains tronçons surveillés en disposent.' : '') },
+  { id: 'eau', lbl: 'Distance aux cours d\'eau et plans d\'eau', src: ['eau'],
+    note: `Distance au cours d'eau, canal ou plan d'eau le plus proche selon la BD TOPO, dans un rayon de ${R_EAU} m.`,
+    read: 'La proximité de l\'eau éclaire le paysage du risque sans délimiter de zone inondable : un bâtiment au bord d\'un canal peut rester hors d\'eau, un autre éloigné de tout ruisseau peut subir le ruissellement. Les cartes d\'aléa et les PPR restent la référence.',
+    classes: () => [{ k: 'e25', lbl: 'Moins de 25 m', col: '#1b5e8a' }, { k: 'e100', lbl: 'De 25 à 100 m', col: '#4a90c2' }, { k: 'e250', lbl: 'De 100 à 250 m', col: '#94c2e3' }, { k: 'e500', lbl: `De 250 à ${R_EAU} m`, col: '#d3e7f4' }, { k: 0, lbl: `Aucune eau à moins de ${R_EAU} m`, col: GREY }],
+    of: (b) => (!b.eau ? 0 : b.eau.d < 25 ? 'e25' : b.eau.d < 100 ? 'e100' : b.eau.d < 250 ? 'e250' : 'e500') },
   { id: 'arg', lbl: 'Retrait-gonflement des argiles', src: ['argile'],
-    note: 'Classes de la carte d\'exposition du BRGM (2019).',
+    note: 'Classe de la carte d\'exposition du BRGM (2019), qui associe la nature argileuse des sols et la sinistralité observée.',
+    read: 'Le retrait-gonflement des argiles figure parmi les périls les plus coûteux du régime des catastrophes naturelles, et touche surtout les maisons aux fondations superficielles. En exposition moyenne ou forte, la loi ELAN impose une étude géotechnique avant la vente d\'un terrain constructible et avant de bâtir.',
     classes: () => [{ k: 3, lbl: 'Exposition forte', col: '#d7301f' }, { k: 2, lbl: 'Exposition moyenne', col: '#f39c3c' }, { k: 1, lbl: 'Exposition faible', col: '#f6e27a' }, { k: 0, lbl: 'Non classé par la carte', col: GREY }],
     of: (b) => b.arg },
-  { id: 'feu', lbl: 'Feu de forêt : distance aux massifs', src: ['old', 'foret'],
-    note: `Distance au massif boisé le plus proche. Les obligations légales de débroussaillement concernent les terrains à moins de ${R_OLD} m des massifs désignés ; le débroussaillement porte sur 50 m autour des constructions.`,
+  { id: 'feu', lbl: 'Feu de forêt, distance aux massifs', src: ['old', 'foret'],
+    note: `Distance au massif boisé le plus proche. Autour des massifs désignés par arrêté, le débroussaillement s'impose aux terrains situés à moins de ${R_OLD} m, sur 50 m autour des constructions.`,
+    read: 'Un feu progresse surtout par les broussailles et les herbes sèches. Une maison débroussaillée, portes et volets fermés, protège ses occupants pendant le passage du front de flammes. Une forêt ou une lande hors des massifs désignés signale une végétation proche sans obligation légale associée.',
     classes: () => [
       { k: 'o50', lbl: 'Massif soumis aux OLD à moins de 50 m', col: '#c2452d' }, { k: 'o200', lbl: `Massif soumis aux OLD entre 50 et ${R_OLD} m`, col: '#f0a06a' },
-      { k: 'f50', lbl: 'Forêt ou lande (BD TOPO) à moins de 50 m, hors massif OLD', col: '#4f7f34' }, { k: 'f200', lbl: `Forêt ou lande entre 50 et ${R_OLD} m, hors massif OLD`, col: '#b5d29a' },
+      { k: 'f50', lbl: 'Forêt ou lande à moins de 50 m, hors massif désigné', col: '#4f7f34' }, { k: 'f200', lbl: `Forêt ou lande entre 50 et ${R_OLD} m, hors massif désigné`, col: '#b5d29a' },
       { k: 0, lbl: `Aucun massif à moins de ${R_OLD} m`, col: GREY }],
     of: (b) => (b.old != null ? (b.old <= 50 ? 'o50' : 'o200') : b.foret != null ? (b.foret <= 50 ? 'f50' : 'f200') : 0) },
   { id: 'sol', lbl: 'Cavités et mouvements de terrain', src: ['cavite', 'mvt'],
-    note: 'Distance au plus proche objet recensé par le BRGM. Les inventaires ne sont pas exhaustifs.',
+    note: 'Distance à la cavité ou au mouvement de terrain le plus proche recensé par le BRGM.',
+    read: 'BDCavité et BDMvt rassemblent ce qui a été signalé et vérifié. Dans les régions de carrières et de marnières, un sous-sol sans objet recensé reste à confirmer. La mairie doit être informée de toute cavité connue et peut en savoir davantage.',
     classes: () => [{ k: 'c50', lbl: 'Cavité ou mouvement recensé à moins de 50 m', col: '#6b4423' }, { k: 'c200', lbl: `Entre 50 et ${R_PT} m`, col: '#c79a5f' }, { k: 0, lbl: `Rien de recensé à moins de ${R_PT} m`, col: GREY }],
     of: (b) => { const d = Math.min(b.cav[0] ? b.cav[0].d : Infinity, b.mvt[0] ? b.mvt[0].d : Infinity); return d <= 50 ? 'c50' : d <= R_PT ? 'c200' : 0; } },
-  { id: 'tech', lbl: 'Risques technologiques et sols pollués', src: ['pm3', 'canal', 'ssp'],
-    note: 'Périmètres de PPRT, secteurs d\'information sur les sols, sites BASOL, distance aux canalisations et aux anciens sites industriels (CASIAS).',
+  { id: 'tech', lbl: 'Risques technologiques et sols pollués', src: ['pm3', 'canal', 'ssp', 'inb'],
+    note: 'Information la plus contraignante parmi le périmètre de PPRT, le rayon PPI d\'une installation nucléaire, le secteur d\'information sur les sols ou site BASOL, la canalisation et l\'ancien site industriel proches.',
+    read: 'Le PPRT et le PPI organisent la protection des habitants autour d\'un site dangereux. Les sols pollués relèvent d\'une autre logique, liée à l\'usage du terrain : jardin potager, école, logement. CASIAS conserve la mémoire des activités passées, qu\'elles aient ou non laissé une pollution.',
     classes: () => [
-      { k: 'pm3', lbl: 'Dans le périmètre d\'un PPRT', col: '#5a2a82' }, { k: 'sis', lbl: 'Dans un secteur d\'information sur les sols ou un site BASOL', col: '#9e6bc0' },
+      { k: 'pm3', lbl: 'Dans le périmètre d\'un PPRT', col: '#5a2a82' }, { k: 'ppi', lbl: 'Dans le rayon PPI d\'une installation nucléaire', col: '#b8860b' },
+      { k: 'sis', lbl: 'Dans un secteur d\'information sur les sols ou un site BASOL', col: '#9e6bc0' },
       { k: 'c50', lbl: 'Canalisation à moins de 50 m', col: '#c44e8a' }, { k: 'c200', lbl: `Canalisation entre 50 et ${R_PT} m`, col: '#eab0cf' },
       { k: 'cas', lbl: `Ancien site industriel (CASIAS) à moins de ${R_PT} m`, col: '#ddd0ea' }, { k: 0, lbl: 'Aucune de ces informations', col: GREY }],
-    of: (b) => (b.pm3.length ? 'pm3' : b.sis.length || b.basol.length ? 'sis' : b.canal.length ? (b.canal[0].d <= 50 ? 'c50' : 'c200') : b.casias.length ? 'cas' : 0) },
-  { id: 'niv', lbl: 'Nombre d\'étages (BD TOPO)', src: ['bati'],
-    note: 'Nombre d\'étages rez-de-chaussée compris, renseigné par l\'IGN. Un bâtiment d\'un seul niveau n\'offre pas de refuge en hauteur en cas d\'inondation.',
+    of: (b) => (b.pm3.length ? 'pm3' : b.ppi.length ? 'ppi' : b.sis.length || b.basol.length ? 'sis' : b.canal.length ? (b.canal[0].d <= 50 ? 'c50' : 'c200') : b.casias.length ? 'cas' : 0) },
+  { id: 'plu', lbl: 'Zonage du plan local d\'urbanisme', src: ['plu'],
+    note: 'Type de zone du PLU ou du PLUi où se situe le centre du bâtiment.',
+    read: 'Le PLU dit où et comment construire. Croisé avec les autres lectures, il montre si des zones à urbaniser recoupent des surfaces inondables ou des périmètres de PPR. Le PPR, servitude d\'utilité publique, s\'impose au PLU.',
+    classes: () => [{ k: 'U', lbl: PLU_TYP.U, col: '#e05a47' }, { k: 'AUc', lbl: PLU_TYP.AUc, col: '#f2a541' }, { k: 'AUs', lbl: PLU_TYP.AUs, col: '#f7d37e' }, { k: 'A', lbl: PLU_TYP.A, col: '#c8d96f' }, { k: 'N', lbl: PLU_TYP.N, col: '#5e9e5b' }, { k: 'x', lbl: 'Autre type de zone', col: '#b9b2d6' }, { k: 0, lbl: 'Pas de zonage PLU publié', col: GREY }],
+    of: (b) => pluKey(b.plu) },
+  { id: 'pop', lbl: 'Habitants du carreau INSEE de 200 m', src: ['insee'],
+    note: 'Nombre d\'habitants recensé par l\'INSEE dans le carreau de 200 m de côté qui contient le bâtiment.',
+    read: 'La densité mesure l\'enjeu humain. À aléa égal, un carreau de quatre cents habitants n\'appelle pas la même organisation de crise qu\'un hameau. Le carreau entier est compté, voisins compris : les bâtiments d\'un même carreau partagent la même couleur.',
+    classes: () => [{ k: 'p500', lbl: '500 habitants ou plus', col: '#4a1486' }, { k: 'p250', lbl: 'De 250 à 500', col: '#6a51a3' }, { k: 'p100', lbl: 'De 100 à 250', col: '#9e9ac8' }, { k: 'p25', lbl: 'De 25 à 100', col: '#cbc9e2' }, { k: 'p0', lbl: 'Moins de 25', col: '#f2f0f7' }, { k: 0, lbl: 'Carreau sans donnée', col: GREY }],
+    of: (b) => { const n = popOf(b); return n == null ? 0 : n >= 500 ? 'p500' : n >= 250 ? 'p250' : n >= 100 ? 'p100' : n >= 25 ? 'p25' : 'p0'; } },
+  { id: 'alt', lbl: 'Altitude du sol', src: ['bati'],
+    note: 'Altitude minimale du sol au pied du bâtiment (BD TOPO, mètres NGF), en cinq classes d\'effectifs égaux propres à la zone analysée.',
+    read: 'En plaine, quelques dizaines de centimètres séparent un rez-de-chaussée inondé d\'un rez-de-chaussée sec. Relue avec les hauteurs d\'eau et les cotes de référence des PPR, l\'altitude révèle le relief fin d\'un quartier : levées, cuvettes, anciens lits. Sa précision dépend de la source altimétrique de la BD TOPO.',
+    classes: () => {
+      ALT = altBreaks();
+      if (!ALT) return [{ k: 0, lbl: 'Altitude non renseignée', col: GREY }];
+      const ramp = ['#1a9850', '#91cf60', '#d9ef8b', '#fee08b', '#d8b365'];
+      return ramp.map((col, j) => ({ k: 'a' + j, lbl: `De ${fmt(ALT[j], 1)} à ${fmt(ALT[j + 1], 1)} m`, col })).concat([{ k: 0, lbl: 'Altitude non renseignée', col: GREY }]);
+    },
+    of: (b) => { if (!ALT || b.alt == null) return 0; for (let j = 1; j < 5; j++) if (b.alt < ALT[j]) return 'a' + (j - 1); return 'a4'; } },
+  { id: 'niv', lbl: 'Nombre d\'étages', src: ['bati'],
+    note: 'Nombre d\'étages rez-de-chaussée compris, renseigné par l\'IGN dans la BD TOPO.',
+    read: 'Lors d\'une inondation, la mise à l\'abri se fait à l\'étage. Un logement de plain-pied en zone inondable n\'a pas de refuge en hauteur, et les PPR récents y imposent souvent l\'aménagement d\'une zone refuge.',
     classes: () => [{ k: 1, lbl: 'Un niveau (plain-pied)', col: '#f4a259' }, { k: 2, lbl: 'Deux niveaux', col: '#8fc1d6' }, { k: 3, lbl: 'Trois niveaux ou plus', col: '#2c6e91' }, { k: 0, lbl: 'Non renseigné', col: GREY }],
     of: (b) => (b.et == null || b.et < 1 ? 0 : Math.min(3, b.et)) },
 ];
@@ -991,6 +1201,10 @@ const VL = {
   ssp: gj({ style: () => ({ color: '#6a2c91', weight: 1, fillColor: '#9e6bc0', fillOpacity: 0.3 }), onEachFeature: (f, l) => l.bindPopup(() => sspPopup(f.properties)) }),
   canal: gj({ style: () => ({ color: '#c44e8a', weight: 2.5, fillColor: '#c44e8a', fillOpacity: 0.5 }), onEachFeature: (f, l) => l.bindPopup(() => `<div class="fiche"><h5>Canalisation de ${esc((f.properties.cat_fluide || 'matières dangereuses').toLowerCase())}</h5><dl><dt>Transporteur</dt><dd>${esc(f.properties.transporteur || '–')}</dd><dt>Ouvrage</dt><dd>${esc(f.properties.desc_ouv || '–')}</dd><dt>Source</dt><dd>Géorisques</dd></dl></div>`) }),
   ouv: gj({ style: () => ({ color: '#0b3d5c', weight: 3 }), onEachFeature: (f, l) => l.bindPopup(() => `<div class="fiche"><h5>Ouvrage de protection</h5><dl><dt>Nom</dt><dd>${esc(f.properties.nom || '–')}</dd><dt>Inondation</dt><dd>${esc(TRI_TYP[f.properties.typ_inond] || '–')}</dd><dt>Source</dt><dd>TRI ${esc(f.properties.id_tri || '')}, Géorisques</dd></dl></div>`) }),
+  eau: gj({ style: (f) => (/Polygon/.test(f.geometry.type) ? { color: '#2b7bb9', weight: 0.5, fillColor: '#6fb1e0', fillOpacity: 0.35 } : { color: '#2b7bb9', weight: f.properties.persistance === 'Intermittent' ? 1 : 2, dashArray: f.properties.persistance === 'Intermittent' ? '4 3' : null }), onEachFeature: (f, l) => l.bindPopup(() => eauPopup(f.properties)) }),
+  plu: gj({ style: (f) => { const c = (LENS.plu.classes().find((x) => x.k === pluKey(f.properties)) || {}).col || '#b9b2d6'; return { color: c, weight: 1, fillColor: c, fillOpacity: 0.18 }; }, onEachFeature: (f, l) => l.bindPopup(() => pluPopup(f.properties)) }),
+  insee: gj({ style: (f) => { const n = +f.properties.ind || 0; const c = n >= 500 ? '#4a1486' : n >= 250 ? '#6a51a3' : n >= 100 ? '#9e9ac8' : n >= 25 ? '#cbc9e2' : '#f2f0f7'; return { color: '#7b7aa8', weight: 0.4, fillColor: c, fillOpacity: 0.45 }; }, onEachFeature: (f, l) => l.bindPopup(() => carPopup(f.properties)) }),
+  inb: L.layerGroup(),
   points: L.layerGroup(),
   icpe: L.layerGroup(),
   zone: L.rectangle([[0, 0], [0, 0]], { color: '#0f5b4f', weight: 1.5, fill: false, dashArray: '6 4', interactive: false }),
@@ -1006,6 +1220,10 @@ const VEC = [
   { id: 'argile', lbl: 'Exposition aux argiles', on: false, leg: () => '<div class="row"><i style="background:#f6e27a"></i>Faible</div><div class="row"><i style="background:#f39c3c"></i>Moyenne</div><div class="row"><i style="background:#d7301f"></i>Forte</div>' },
   { id: 'old', lbl: 'Massifs soumis aux obligations de débroussaillement', on: false, leg: () => '<div class="row"><i style="background:#f0a06a;opacity:.5;border:1px dashed #b5502a"></i>Massif soumis aux OLD</div>' },
   { id: 'foret', lbl: 'Forêts et landes (BD TOPO)', on: false, leg: () => '<div class="row"><i style="background:#6f9a55;opacity:.5"></i>Forêt ou lande</div>' },
+  { id: 'eau', lbl: 'Cours d\'eau, canaux et plans d\'eau (BD TOPO)', on: false, leg: () => '<div class="row"><i class="line" style="color:#2b7bb9;border-top-style:solid;border-top-width:2px"></i>Écoulement permanent</div><div class="row"><i class="line" style="color:#2b7bb9"></i>Écoulement intermittent</div><div class="row"><i style="background:#6fb1e0;opacity:.6"></i>Surface en eau</div>' },
+  { id: 'plu', lbl: 'Zonage des plans locaux d\'urbanisme', on: false, leg: () => LENS.plu.classes().filter((c) => c.k).map((c) => `<div class="row"><i style="background:${c.col};opacity:.5"></i>${esc(c.lbl)}</div>`).join('') },
+  { id: 'insee', lbl: 'Carreaux INSEE de 200 m (habitants)', on: false, leg: () => LENS.pop.classes().filter((c) => c.k).map((c) => `<div class="row"><i style="background:${c.col};opacity:.7"></i>${esc(c.lbl)}</div>`).join('') },
+  { id: 'inb', lbl: 'Installations nucléaires et rayon PPI', on: true, leg: () => '<div class="row"><i class="pt" style="background:#b8860b;border:2px solid #fff"></i>Installation nucléaire</div><div class="row"><i class="line" style="color:#b8860b"></i>Rayon du plan particulier d\'intervention</div>' },
   { id: 'points', lbl: 'Cavités et mouvements de terrain', on: true, leg: () => '<div class="row"><i class="pt" style="background:#f2e3c9;border:2px solid #5a3d1c"></i>Cavité souterraine</div><div class="row"><i class="pt" style="background:#a77b43;border:2px solid #694520"></i>Mouvement de terrain</div>' },
   { id: 'ssp', lbl: 'Secteurs d\'information sur les sols et sites BASOL', on: true, leg: () => '<div class="row"><i style="background:#9e6bc0;opacity:.6"></i>SIS ou site BASOL</div>' },
   { id: 'canal', lbl: 'Canalisations de matières dangereuses', on: true, leg: () => '<div class="row"><i class="line" style="color:#c44e8a;border-top-style:solid;border-top-width:3px"></i>Canalisation</div>' },
@@ -1083,14 +1301,14 @@ $('#lens').innerHTML = LENSES.map((l) => `<option value="${l.id}">${esc(l.lbl)}<
 $('#lens').addEventListener('change', (e) => { S.lens = e.target.value; restyle(); });
 
 /* ---------- Légende : lecture des bâtiments + couches visibles ---------- */
-let legendSmall = false, popupOpen = false;
+let legendSmall = false, popupOpen = false, legendRead = false;
 map.on('popupopen', () => { popupOpen = true; $('#legend').classList.add('small'); });
 map.on('popupclose', () => { popupOpen = false; $('#legend').classList.toggle('small', legendSmall); });
 function legend() {
   const l = LENS[S.lens];
   let h = `<button class="min" id="legmin" aria-label="Réduire ou agrandir la légende">${legendSmall ? 'Afficher' : 'Réduire'}</button><h4>Bâtiments : ${esc(l.lbl)}</h4>`;
-  if (!S.B.length) h += '<p>Lancez une analyse pour colorer les bâtiments.</p>';
-  else if (!lensOk(l)) h += '<p>Source indisponible pendant l\'analyse : les bâtiments restent en gris clair.</p>';
+  if (!S.B.length) h += `<p>${esc(l.note)}</p><p class="muted">Les bâtiments prennent leur couleur après l'analyse de la zone.</p>`;
+  else if (!lensOk(l)) h += '<p>La source de cette lecture n\'a pas répondu pendant l\'analyse ; les bâtiments restent en gris clair.</p>';
   else {
     h += `<p>${esc(l.note)}</p>`;
     const counts = new Map();
@@ -1099,91 +1317,115 @@ function legend() {
     const e = l.empty && l.empty();
     if (e) h += `<p style="margin-top:6px">${esc(e)}</p>`;
   }
+  if (l.read) h += `<details class="howto"${legendRead ? ' open' : ''}><summary>Comment lire cette carte</summary><p>${esc(l.read)}</p><p class="muted">Sources : ${[...new Set(l.src)].map((k) => `<a href="#" data-srcref="${k}">${esc(SRC[k].prod)}</a>`).join(', ')}</p></details>`;
   if (S.dim === '2d') {
     const vis = VEC.filter((v) => v.leg && map.hasLayer(VL[v.id]) && v.id !== 'bati' && VL[v.id].getLayers && VL[v.id].getLayers().length);
     if (vis.length) h += '<div class="sep"></div><h4>Couches affichées</h4>' + vis.map((v) => `<div style="margin-bottom:4px"><b style="font-weight:600">${esc(v.lbl)}</b>${v.leg()}</div>`).join('');
     const ws = WMS.filter((w) => map.hasLayer(wmsL[w.id]));
-    if (ws.length) h += '<div class="sep"></div><h4>Cartes officielles (Géorisques)</h4>' + ws.map((w) => `<div><b style="font-weight:600">${esc(w.lbl)}</b><img src="${wmsLegend(w)}" alt="Légende officielle : ${esc(w.lbl)}" loading="lazy"></div>`).join('');
-  } else h += '<div class="sep"></div><p>En 3D : surfaces inondables des TRI, zonages réglementaires et périmètres des plans de prévention, avec les mêmes couleurs qu\'en 2D. Hauteur des bâtiments : BD TOPO.</p>';
+    if (ws.length) h += '<div class="sep"></div><h4>Cartes officielles de Géorisques</h4>' + ws.map((w) => `<div><b style="font-weight:600">${esc(w.lbl)}</b><img src="${wmsLegend(w)}" alt="Légende officielle : ${esc(w.lbl)}" loading="lazy"></div>`).join('');
+  } else h += '<div class="sep"></div><p>La vue 3D reprend les surfaces inondables des TRI, les zonages réglementaires et les périmètres des plans de prévention avec les couleurs de la 2D. Les bâtiments sont élevés selon leur hauteur dans la BD TOPO.</p>';
   const el = $('#legend');
   el.innerHTML = h;
   el.classList.toggle('small', legendSmall || popupOpen);
   $('#legmin').onclick = () => { legendSmall = !legendSmall; legend(); };
+  const d = el.querySelector('details.howto'); if (d) d.addEventListener('toggle', () => { legendRead = d.open; });
 }
 
-/* ---------- Fiche bâtiment ---------- */
-const dTxt = (d) => (d < 1 ? 'au droit du bâtiment' : `à ${fmt(d)} m`);
-const srcTag = (t) => ` <small>(${esc(t)})</small>`;
-function absent(k, txt) { return S.err[k] ? `<li class="no">Source indisponible pendant l'analyse${srcTag(SRC[k].prod)}</li>` : has(k) ? `<li class="no">${txt}</li>` : ''; }
+/* ---------- Fiche bâtiment ----------
+   Chaque ligne cite sa source ; un clic sur la source ouvre sa fiche de
+   lecture dans l'onglet Sources. */
+const dTxt = (d) => (d < 1 ? 'au contact du bâtiment' : `à ${fmt(d)} m`);
+const srcTag = (k, t) => ` <small>(<a href="#" class="srcref" data-srcref="${k}">${esc(t || SRC[k].prod)}</a>)</small>`;
+function absent(k, txt) { return S.err[k] ? `<li class="no">Source sans réponse pendant l'analyse${srcTag(k)}</li>` : has(k) ? `<li class="no">${txt}</li>` : ''; }
+const r1 = (v) => Math.round(+v || 0);
 function ficheSections(b) {
   const D = S.data, sec = [];
   // Réglementation
   let r = '';
-  for (const p of b.pm1.concat(b.pm3)) { const u = pprDoc(p); r += `<li>Dans le périmètre du plan <b>${u ? link(u, pprTitle(p)) : esc(pprTitle(p))}</b>${srcTag('Géoportail de l\'urbanisme, ' + (p.suptype === 'pm3' ? 'PM3' : 'PM1'))}</li>`; }
-  for (const z of b.zreg) r += `<li>${esc(z._title)} : zone ${esc(z._code || z._lib || 'sans code')}${TYPEREG[z._typereg] ? ` (<b>${TYPEREG[z._typereg].toLowerCase()}</b>)` : ''}${z._lib && z._code ? ' · ' + esc(z._lib) : ''}${z.urlfic ? ' · ' + link(z.urlfic, 'règlement') : ''}${srcTag('couche ' + z._layer)}</li>`;
+  for (const p of b.pm1.concat(b.pm3)) { const u = pprDoc(p); r += `<li>Dans le périmètre du plan <b>${u ? link(u, pprTitle(p)) : esc(pprTitle(p))}</b>${srcTag(p.suptype === 'pm3' ? 'pm3' : 'pm1', 'Géoportail de l\'urbanisme, servitude ' + (p.suptype === 'pm3' ? 'PM3' : 'PM1'))}</li>`; }
+  for (const z of b.zreg) r += `<li>${esc(z._title)}, zone ${esc(z._code || z._lib || 'sans code')}${TYPEREG[z._typereg] ? ` (<b>${TYPEREG[z._typereg].toLowerCase()}</b>)` : ''}${z._lib && z._code ? ', ' + esc(z._lib) : ''}${z.urlfic ? ' · ' + link(z.urlfic, 'règlement de la zone') : ''}${srcTag('zreg', 'couche ' + z._layer)}</li>`;
   if (!r) r = absent('pm1', 'Hors des périmètres de plans de prévention publiés sur le Géoportail de l\'urbanisme');
-  sec.push(['Plans de prévention', r]);
+  sec.push(['Plans de prévention', r, null]);
   // Inondation
   let f = '';
   if (D.tri && D.tri.tri.length) {
     const typs = Object.keys(b.tri);
     for (const t of typs) {
       const sc = [...b.tri[t]].sort((a, c) => SC_ORDER.indexOf(a) - SC_ORDER.indexOf(c));
-      const hts = ['MOY', 'MCC'].map((s) => b.triht[t + s] ? `${s === 'MOY' ? 'moyen' : 'moyen avec changement climatique'} : ${htLbl(b.triht[t + s]).toLowerCase()}` : '').filter(Boolean);
-      f += `<li><b>${TRI_TYP[t]}</b> : inondé dans le scénario ${sc.map((s) => TRI_SCEN[SC_ORDER.indexOf(s)].lbl.replace('Événement ', '')).join(', ')}${hts.length ? `<br>Hauteur d'eau, scénario ${hts.join(' ; scénario ')}` : ''}${srcTag('TRI ' + D.tri.tri.map((x) => x.nom.replace(/_/g, ' ')).join(', '))}</li>`;
+      const hts = ['MOY', 'MCC'].map((x) => b.triht[t + x] ? `${x === 'MOY' ? 'scénario moyen' : 'scénario moyen avec changement climatique'}, ${htLbl(b.triht[t + x]).toLowerCase()}` : '').filter(Boolean);
+      f += `<li><b>${TRI_TYP[t]}</b>, atteint dès le ${TRI_SCEN[SC_ORDER.indexOf(sc[0])].lbl.toLowerCase().replace('événement', 'scénario')}${sc.length > 1 ? ` (scénarios concernés : ${sc.map((x) => TRI_SCEN[SC_ORDER.indexOf(x)].lbl.replace('Événement ', '')).join(', ')})` : ''}${hts.length ? `<br>Hauteur d'eau : ${hts.join(' ; ')}` : ''}${srcTag('tri', 'TRI ' + D.tri.tri.map((x) => x.nom.replace(/_/g, ' ')).join(', '))}</li>`;
     }
-    if (!typs.length) f += `<li class="no">Hors des surfaces inondables cartographiées du TRI${srcTag('Géorisques')}</li>`;
+    if (!typs.length) f += `<li class="no">Hors des surfaces inondables cartographiées par le TRI${srcTag('tri', 'Géorisques')}</li>`;
   } else if (S.err.tri) f += absent('tri');
-  else if (has('tri')) f += '<li class="no">Hors des territoires à risque important d\'inondation : pas de cartographie TRI ici, ce qui ne signifie pas absence d\'aléa</li>';
+  else if (has('tri')) f += '<li class="no">Hors des territoires à risque important d\'inondation, seuls cartographiés selon les scénarios de la directive : l\'aléa peut exister sans y figurer</li>';
   const zin = b.zich.filter(isZin), zx = b.zich.filter((p) => !isZin(p));
   if (zin.length) {
     const z = zin.slice().sort((a, c) => (a.hauteurstation || 0) - (c.hauteurstation || 0))[0];
     const hmax = z.hauteurmax >= 9999999 ? (z.hauteurmin > 0 ? `plus de ${fmt(z.hauteurmin / 1000, 2)} m` : '') : `de ${fmt(z.hauteurmin / 1000, 2)} à ${fmt(z.hauteurmax / 1000, 2)} m`;
-    f += `<li>Zone inondée cartographiée par Vigicrues dès <b>${fmt(z.hauteurstation / 1000, 2)} m</b> à la station ${esc(z.lbstationhydro || '')} ${hmax ? `; hauteur d'eau dans cette zone : ${hmax}` : ''}${zin.length > 1 ? ` (${zin.length} cartes de crue concernent ce bâtiment)` : ''}${srcTag('Vigicrues')}</li>`;
+    f += `<li>Atteint selon Vigicrues quand la station ${esc(z.lbstationhydro || '')} marque <b>${fmt(z.hauteurstation / 1000, 2)} m</b>${hmax ? `, avec ${hmax} d'eau dans cette zone` : ''}${zin.length > 1 ? ` (${zin.length} cartes de crue concernent ce bâtiment)` : ''}${srcTag('zich', 'Vigicrues')}</li>`;
   }
-  if (zx.length) { const st = [...new Set(zx.map((p) => p.lbstationhydro).filter(Boolean))]; f += `<li>Dans une zone signalée à part sur ${zx.length > 1 ? 'des cartes' : 'une carte'} Vigicrues (code de type ${[...new Set(zx.map((p) => p.cdtypezone))].join(', ')}), catégorie qui regroupe notamment les zones d'incertitude et les zones situées derrière des digues ; aucune hauteur d'eau n'y est donnée${st.length ? ` (station ${esc(st.join(', '))})` : ''}${srcTag('Vigicrues')}</li>`; }
+  if (zx.length) { const st = [...new Set(zx.map((p) => p.lbstationhydro).filter(Boolean))]; f += `<li>Dans une zone ${zx.length > 1 ? 'que des cartes Vigicrues signalent' : 'qu\'une carte Vigicrues signale'} à part (type ${[...new Set(zx.map((p) => p.cdtypezone))].join(', ')}), catégorie qui regroupe notamment les zones d'incertitude et l'arrière des digues ; aucune hauteur d'eau n'y est donnée${st.length ? ` (station ${esc(st.join(', '))})` : ''}${srcTag('zich', 'Vigicrues')}</li>`; }
   if (!b.zich.length) f += absent('zich', 'Hors des zones d\'inondation cartographiées par Vigicrues');
-  sec.push(['Inondation', f]);
+  if (b.eau) { const p = b.eau.p; const nom = p.cpx_toponyme_de_cours_d_eau || p.cpx_toponyme_de_plan_d_eau; f += `<li>${esc(p.nature || 'Eau')}${nom ? ' <b>' + esc(nom) + '</b>' : ''}${p.persistance && p.persistance !== 'Permanent' ? ` (écoulement ${esc(p.persistance.toLowerCase())})` : ''} ${dTxt(b.eau.d)}${srcTag('eau', 'BD TOPO, hydrographie')}</li>`; }
+  else if (has('eau')) f += `<li class="no">Aucun cours d'eau ni plan d'eau à moins de ${R_EAU} m${srcTag('eau', 'BD TOPO')}</li>`;
+  if (b.alt != null) f += `<li>Sol au pied du bâtiment à <b>${fmt(b.alt, 1)} m</b> d'altitude${b.et === 1 ? ', bâtiment de plain-pied sans étage refuge' : ''}${srcTag('bati', 'BD TOPO')}</li>`;
+  sec.push(['Inondation', f, 'inond']);
   // Sols
   let s = '';
-  if (b.arg) s += `<li>Exposition <b>${ARG[b.arg]}</b> au retrait-gonflement des argiles${srcTag('BRGM, 2019')}</li>`;
+  if (b.arg) s += `<li>Exposition <b>${ARG[b.arg]}</b> au retrait-gonflement des argiles${srcTag('argile', 'BRGM, 2019')}</li>`;
   else s += absent('argile', 'Non classé par la carte d\'exposition aux argiles');
-  for (const c of b.cav.slice(0, 3)) s += `<li>Cavité souterraine (${esc(c.p.type || 'type non renseigné')}${c.p.nom ? ', ' + esc(c.p.nom) : ''}) ${dTxt(c.d)}${srcTag('BRGM, BDCavité ' + c.p.identifiant)}</li>`;
-  for (const c of b.mvt.slice(0, 3)) s += `<li>Mouvement de terrain : ${esc((c.p.type || 'type non renseigné').toLowerCase())}${c.p.date_debut ? ' (' + esc(c.p.date_debut) + ')' : ''} ${dTxt(c.d)}${srcTag('BRGM, BDMvt ' + c.p.identifiant)}</li>`;
+  for (const c of b.cav.slice(0, 3)) s += `<li>Cavité souterraine (${esc(c.p.type || 'type non renseigné')}${c.p.nom ? ', ' + esc(c.p.nom) : ''}) ${dTxt(c.d)}${srcTag('cavite', 'BDCavité ' + c.p.identifiant)}</li>`;
+  for (const c of b.mvt.slice(0, 3)) s += `<li>Mouvement de terrain, ${esc((c.p.type || 'type non renseigné').toLowerCase())}${c.p.date_debut ? ' (' + esc(c.p.date_debut) + ')' : ''}, ${dTxt(c.d)}${srcTag('mvt', 'BDMvt ' + c.p.identifiant)}</li>`;
   if (b.cav.length > 3 || b.mvt.length > 3) s += `<li class="no">Au total ${plural(b.cav.length, 'cavité')} et ${plural(b.mvt.length, 'mouvement')} à moins de ${R_PT} m</li>`;
-  if (!b.cav.length && !b.mvt.length) s += absent('cavite', `Aucune cavité ni mouvement de terrain recensé à moins de ${R_PT} m`);
-  sec.push(['Sols et sous-sol', s]);
+  if (!b.cav.length && !b.mvt.length) s += absent('cavite', `Aucune cavité ni aucun mouvement de terrain recensé à moins de ${R_PT} m`);
+  sec.push(['Sols et sous-sol', s, b.arg ? 'arg' : 'sol']);
   // Feu de forêt
   let o = '';
-  if (b.old != null) o += `<li>Massif soumis aux obligations légales de débroussaillement ${dTxt(b.old)}${b.oldP && b.oldP.dat_ap_old ? ` (arrêté du ${esc(b.oldP.dat_ap_old)})` : ''}${b.oldP && b.oldP.url ? ` · ${link(b.oldP.url, 'information de la préfecture')}` : ''}${srcTag('zonage OLD')}</li>`;
+  if (b.old != null) o += `<li>Massif soumis aux obligations légales de débroussaillement ${dTxt(b.old)}${b.oldP && b.oldP.dat_ap_old ? ` (arrêté du ${esc(b.oldP.dat_ap_old)})` : ''}${b.oldP && b.oldP.url ? ` · ${link(b.oldP.url, 'information de la préfecture')}` : ''}${srcTag('old', 'zonage OLD')}</li>`;
   else o += absent('old', `Aucun massif soumis aux OLD à moins de ${R_OLD} m`);
-  if (b.foret != null) o += `<li>${esc(b.foretP || 'Forêt')} ${dTxt(b.foret)}${srcTag('BD TOPO')}</li>`;
-  sec.push(['Feu de forêt', o]);
+  if (b.foret != null) o += `<li>${esc(b.foretP || 'Forêt')} ${dTxt(b.foret)}${srcTag('foret', 'BD TOPO')}</li>`;
+  sec.push(['Feu de forêt', o, 'feu']);
   // Technologique et pollution
   let t = '';
-  for (const p of b.sis) t += `<li>Dans le secteur d'information sur les sols ${esc(p.nom_etablissement || p.id_inventaire_classification || '')}${srcTag('SIS')}</li>`;
-  for (const p of b.basol) t += `<li>Dans l'emprise du site BASOL ${esc(p.nom_etablissement || '')} (instruction ${esc((p.statut_instruction || '').toLowerCase() || 'non renseignée')})${srcTag('BASOL')}</li>`;
-  for (const c of b.canal.slice(0, 2)) t += `<li>Canalisation de ${esc((c.p.cat_fluide || 'matières dangereuses').toLowerCase())} (${esc(c.p.transporteur || 'transporteur non renseigné')}) ${dTxt(c.d)}${srcTag('Géorisques')}</li>`;
-  for (const c of b.casias.slice(0, 2)) t += `<li>Ancien site industriel ou de service : ${c.p.fiche_risque ? link(c.p.fiche_risque, c.p.nom_etablissement || c.p.code_inventaire || 'fiche CASIAS') : esc(c.p.nom_etablissement || '')} ${dTxt(c.d)}${srcTag('CASIAS')}</li>`;
-  if (!t) t = absent('ssp', `Ni secteur d'information sur les sols, ni site BASOL, ni canalisation ou ancien site industriel à moins de ${R_PT} m`);
-  sec.push(['Technologique et sols pollués', t]);
+  for (const x of b.ppi) t += `<li>À ${fmt(x.d / 1000, 1)} km de <b>${esc(x.p.nomInstallationNucleaire)}</b>, dans le rayon de ${fmt(x.p.rayon_ppi / 1000, 1)} km de son plan particulier d'intervention${x.p.risqueIode ? '. Géorisques y retient un risque iode : les habitants de ce rayon sont concernés par les distributions préventives de comprimés d\'iode' : ''}${srcTag('inb', 'Géorisques, INB')}</li>`;
+  for (const p of b.sis) t += `<li>Dans le secteur d'information sur les sols ${esc(p.nom_etablissement || p.id_inventaire_classification || '')}${srcTag('ssp', 'SIS')}</li>`;
+  for (const p of b.basol) t += `<li>Dans l'emprise du site pollué ${esc(p.nom_etablissement || '')} (instruction ${esc((p.statut_instruction || '').toLowerCase() || 'non renseignée')})${srcTag('ssp', 'BASOL')}</li>`;
+  for (const c of b.canal.slice(0, 2)) t += `<li>Canalisation de ${esc((c.p.cat_fluide || 'matières dangereuses').toLowerCase())} (${esc(c.p.transporteur || 'transporteur non renseigné')}) ${dTxt(c.d)}${srcTag('canal', 'Géorisques')}</li>`;
+  for (const c of b.casias.slice(0, 2)) t += `<li>Ancienne activité industrielle ou de service, ${c.p.fiche_risque ? link(c.p.fiche_risque, c.p.nom_etablissement || c.p.code_inventaire || 'fiche CASIAS') : esc(c.p.nom_etablissement || '')}, ${dTxt(c.d)}${srcTag('ssp', 'CASIAS')}</li>`;
+  if (!t) t = absent('ssp', `Ni secteur d'information sur les sols, ni site pollué, ni canalisation, ni ancienne activité industrielle à moins de ${R_PT} m`);
+  sec.push(['Technologique et sols pollués', t, b.sis.length || b.basol.length || b.casias.length ? 'pol' : 'tech']);
+  // Urbanisme
+  let u = '';
+  if (b.plu) { const p = b.plu; u += `<li>Zone <b>${esc(p.libelle || p.typezone)}</b> du ${esc(String(p.idurba || '').split('_')[1] || 'document d\'urbanisme')}${PLU_TYP[pluKey(p)] ? ', ' + PLU_TYP[pluKey(p)].charAt(0).toLowerCase() + PLU_TYP[pluKey(p)].slice(1) : ''}${p.datvalid ? `, en vigueur depuis le ${esc(String(p.datvalid).replace(/^(\d{4})(\d{2})(\d{2}).*/, '$3/$2/$1'))}` : ''}${p.urlfic ? ' · ' + link(p.urlfic, 'règlement de la zone') : ''}${srcTag('plu', 'Géoportail de l\'urbanisme')}</li>`; if (p.libelong && p.libelong !== p.libelle) u += `<li class="no">${esc(p.libelong.replace(/^[^:]{1,20}:\s*/, ''))}</li>`; }
+  else if (has('plu')) u += `<li class="no">Aucun zonage de PLU publié à cet endroit${srcTag('plu', 'Géoportail de l\'urbanisme')}</li>`;
+  if (u) sec.push(['Urbanisme', u, null]);
+  // Population du carreau
+  if (b.car) {
+    const c = b.car, kids = (+c.ind_0_3 || 0) + (+c.ind_4_5 || 0) + (+c.ind_6_10 || 0), men = +c.men || 0;
+    const logs = (+c.log_av45 || 0) + (+c.log_45_70 || 0) + (+c.log_70_90 || 0) + (+c.log_ap90 || 0);
+    let h = `<li>Environ <b>${fmt(r1(c.ind))} habitants</b> dans le carreau de 200 m, dont ${fmt(r1(c.ind_80p))} de 80 ans et plus, ${fmt(r1(+c.ind_65_79 || 0))} de 65 à 79 ans et ${fmt(r1(kids))} enfants de moins de 11 ans${srcTag('insee', 'INSEE, Filosofi')}</li>`;
+    if (men) h += `<li>${fmt(r1(men))} ménages, dont ${fmt(r1(c.men_1ind))} personnes seules et ${fmt(r1(c.men_pauv))} ménages sous le seuil de pauvreté</li>`;
+    if (logs) h += `<li>${fmt(Math.round((+c.log_av45 || 0) / logs * 100))} % des logements construits avant 1945, ${fmt(Math.round((+c.log_ap90 || 0) / logs * 100))} % après 1990${+c.log_soc ? ` ; ${fmt(r1(c.log_soc))} logements sociaux` : ''}</li>`;
+    if (+c.i_car_est) h += '<li class="no">Carreau de moins de 11 ménages : valeurs imputées par l\'INSEE pour respecter le secret statistique</li>';
+    sec.push(['Habitants du carreau INSEE', h, null]);
+  }
   // Commune
   const g = D.gaspar;
   if (g) {
     let c = '';
     if (g.sismique) c += `<li>Zone de sismicité ${esc(sismLbl(g.sismique))}</li>`;
     if (g.radon) c += `<li>Potentiel radon de catégorie ${esc(g.radon.classe_potentiel)}</li>`;
-    if (D.catnat) c += `<li>${plural(D.catnat.length, 'arrêté')} de catastrophe naturelle pour la commune</li>`;
-    if (c) sec.push([`Commune de ${S.com.nom}`, c]);
+    if (D.catnat) c += `<li>${D.catnat.length ? plural(D.catnat.length, 'arrêté') : 'Aucun arrêté'} de catastrophe naturelle pour la commune</li>`;
+    if (c) sec.push([`Commune de ${S.com.nom}`, c, null]);
   }
   return sec;
 }
 function ficheHTML(b) {
-  const id = [b.et ? `${b.et} étage${b.et > 1 ? 's' : ''}` : '', b.h ? `${fmt(b.h, 1)} m de haut` : '', b.log ? plural(b.log, 'logement') : '', b.app ? `présent dans la BD TOPO depuis ${b.app}` : ''].filter(Boolean).join(' · ');
+  const id = [b.et ? `${b.et} niveau${b.et > 1 ? 'x' : ''}` : '', b.h ? `${fmt(b.h, 1)} m de haut` : '', b.log ? plural(b.log, 'logement') : '', b.app ? `apparu sur le terrain en ${b.app} selon la BD TOPO` : ''].filter(Boolean).join(' · ');
   const etab = b.etab ? `<div class="sub"><b>${esc(b.etab.toponyme || b.etab.nature_detaillee || b.etab.nature)}</b> (${esc((b.etab.nature_detaillee || b.etab.nature || '').toLowerCase())})</div>` : '';
   return `<div class="fiche"><h5>${esc(b.usage)}${b.usage2 ? ' et ' + esc(b.usage2.toLowerCase()) : ''}</h5>
     <div class="sub" id="addr-${b.i}">Recherche de l'adresse…</div>${etab}<div class="sub">${esc(id)}</div>
-    <div class="scroll">${ficheSections(b).map(([h, c]) => `<div class="sec"><b>${esc(h)}</b><ul>${c}</ul></div>`).join('')}</div>
+    <div class="scroll">${ficheSections(b).map(([h, c, rk]) => `<div class="sec"><div class="sh"><b>${esc(h)}</b>${rk ? `<a href="#" class="learn" data-risk="${rk}">Comprendre ce risque</a>` : ''}</div><ul>${c}</ul></div>`).join('')}</div>
     <div class="bar"><a id="grl-${b.i}" href="${grAddressReport(b.c[0], b.c[1], '', S.com && S.com.code, S.com && S.com.nom)}" target="_blank" rel="noopener">Rapport Géorisques ici</a>${b.rnb ? `<a href="${rnbLink(b.rnb)}" target="_blank" rel="noopener">Fiche RNB</a>` : ''}<a href="${gpuMapLink(b.c[0], b.c[1])}" target="_blank" rel="noopener">Urbanisme</a><button data-print="${b.i}">Rapport du bâtiment</button></div></div>`;
 }
 const ADDR = new Map();
@@ -1231,6 +1473,21 @@ function sspPopup(p) {
   return `<div class="fiche"><h5>${esc(p.nom_etablissement || 'Site')}</h5><div class="sub">${p.id_inventaire_classification ? 'Secteur d\'information sur les sols' : 'Site BASOL'}</div><dl>${p.adresse ? `<dt>Adresse</dt><dd>${esc(p.adresse)}</dd>` : ''}${p.statut_instruction ? `<dt>Instruction</dt><dd>${esc(p.statut_instruction)}</dd>` : ''}${p.code_metier ? `<dt>Code</dt><dd>${esc(p.code_metier)}</dd>` : ''}</dl><p class="muted" style="margin:6px 0 0">Géorisques</p></div>`;
 }
 
+function eauPopup(p) {
+  const nom = p.cpx_toponyme_de_cours_d_eau || p.cpx_toponyme_de_plan_d_eau;
+  return `<div class="fiche"><h5>${esc(nom || p.nature || 'Cours d\'eau')}</h5><dl><dt>Nature</dt><dd>${esc(p.nature || '–')}</dd><dt>Écoulement</dt><dd>${esc(p.persistance || '–')}</dd></dl><p class="muted" style="margin:6px 0 0">IGN, BD TOPO</p></div>`;
+}
+function pluPopup(p) {
+  return `<div class="fiche"><h5>Zone ${esc(p.libelle || p.typezone || '')}</h5><div class="sub">${esc(PLU_TYP[pluKey(p)] || 'Type de zone ' + (p.typezone || 'non renseigné'))}</div>${p.libelong ? `<p style="margin:4px 0">${esc(p.libelong)}</p>` : ''}<dl><dt>Document</dt><dd>${esc(p.idurba || '–')}</dd></dl>${p.urlfic ? `<p style="margin:8px 0 0">${link(p.urlfic, 'Règlement de la zone')}</p>` : ''}<p class="muted" style="margin:6px 0 0">Géoportail de l'urbanisme</p></div>`;
+}
+function carPopup(c) {
+  const r = (v) => fmt(Math.round(+v || 0));
+  return `<div class="fiche"><h5>Carreau INSEE de 200 m</h5><div class="sub">${esc(c.nom_com || '')}</div><dl><dt>Habitants</dt><dd>${r(c.ind)}</dd><dt>80 ans et plus</dt><dd>${r(c.ind_80p)}</dd><dt>Moins de 11 ans</dt><dd>${r((+c.ind_0_3 || 0) + (+c.ind_4_5 || 0) + (+c.ind_6_10 || 0))}</dd><dt>Ménages</dt><dd>${r(c.men)}</dd><dt>Ménages pauvres</dt><dd>${r(c.men_pauv)}</dd><dt>Logements sociaux</dt><dd>${r(c.log_soc)}</dd></dl>${+c.i_car_est ? '<p class="muted" style="margin:6px 0 0">Valeurs imputées (carreau de moins de 11 ménages).</p>' : ''}<p class="muted" style="margin:6px 0 0">INSEE, Filosofi</p></div>`;
+}
+function inbPopup(x) {
+  return `<div class="fiche"><h5>${esc(x.nomInstallationNucleaire)}</h5><div class="sub">${esc(x.typeInstallationNucleaire || '')}${x.exploitant ? ' · ' + esc(x.exploitant) : ''}</div><dl><dt>Site</dt><dd>${esc(x.site || '–')}</dd><dt>Rayon PPI</dt><dd>${x.ppi && +x.rayon_ppi ? fmt(x.rayon_ppi / 1000, 1) + ' km' : 'non renseigné'}</dd><dt>Risque iode</dt><dd>${x.risqueIode ? 'retenu' : 'non retenu'}</dd></dl><p style="margin:8px 0 0">${lk('iode')}</p><p class="muted" style="margin:6px 0 0">Géorisques, installations nucléaires de base</p></div>`;
+}
+
 /* ---------- Dessin ---------- */
 function triFeatures() {
   const D = S.data; if (!D.tri) return [];
@@ -1253,11 +1510,19 @@ function draw() {
   VL.old.clearLayers().addData(D.old || []);
   VL.ssp.clearLayers().addData(D.ssp ? [...D.ssp.sis, ...D.ssp.basol] : []);
   VL.canal.clearLayers().addData(D.canal || []);
+  VL.eau.clearLayers().addData(D.eau || []);
+  VL.plu.clearLayers().addData(D.plu || []);
+  VL.insee.clearLayers().addData(D.insee || []);
+  VL.inb.clearLayers();
+  for (const x of D.inb || []) {
+    L.circleMarker([x.latitude, x.longitude], pointIcon('#b8860b', '#fff', 12)).bindPopup(() => inbPopup(x)).addTo(VL.inb);
+    if (x.ppi && +x.rayon_ppi > 0) L.circle([x.latitude, x.longitude], { renderer: CANVAS, radius: +x.rayon_ppi, color: '#b8860b', weight: 1.5, dashArray: '6 4', fill: false, interactive: false }).addTo(VL.inb);
+  }
   VL.equip.clearLayers();
   for (const e of S.E) {
     const g = GROUPS.find((x) => x.id === e.grp);
     L.marker([e.c[1], e.c[0]], { icon: L.divIcon({ className: '', html: `<div style="width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid #18211f;box-shadow:0 1px 4px rgba(0,0,0,.35);display:grid;place-items:center;font:600 10px/1 sans-serif;color:#18211f">${g.ico}</div>`, iconSize: [20, 20], iconAnchor: [10, 10] }) })
-      .bindPopup(() => `<div class="fiche"><h5>${esc(e.nom)}</h5><div class="sub">${esc(e.nature)} · ${plural(e.bids.length, 'bâtiment')}</div><ul>${e.ind.length ? e.ind.map((k) => `<li>${esc(IND.find((x) => x.id === k).lbl)}</li>`).join('') : '<li class="no">Aucune des informations croisées</li>'}</ul><p class="muted" style="margin:6px 0 0">Cliquez sur un bâtiment pour le détail.</p></div>`).addTo(VL.equip);
+      .bindPopup(() => `<div class="fiche"><h5>${esc(e.nom)}</h5><div class="sub">${esc(e.nature)} · ${plural(e.bids.length, 'bâtiment')}</div><ul>${e.ind.length ? e.ind.map((k) => `<li>${esc(IND.find((x) => x.id === k).lbl)}</li>`).join('') : '<li class="no">Aucune des informations croisées</li>'}</ul><p class="muted" style="margin:6px 0 0">Le détail figure dans la fiche de chacun de ses bâtiments.</p></div>`).addTo(VL.equip);
   }
   VL.points.clearLayers();
   for (const x of I.cav) L.circleMarker([x.c[1], x.c[0]], pointIcon('#f2e3c9', '#5a3d1c')).bindPopup(`<div class="fiche"><h5>${esc(x.p.nom || 'Cavité souterraine')}</h5><dl><dt>Type</dt><dd>${esc(x.p.type || '–')}</dd><dt>Repérage</dt><dd>${esc(x.p.reperage_geo || '–')}</dd><dt>Identifiant</dt><dd>${esc(x.p.identifiant)}</dd><dt>Source</dt><dd>BRGM, BDCavité</dd></dl></div>`).addTo(VL.points);
@@ -1316,7 +1581,13 @@ async function analyse() {
   map.closePopup(); popup3d && popup3d.remove();
   if (map3d) fill3d();
   const total = SOURCES.length + 1; let done = 0;
-  const tick = () => { done++; progress(done, total); status(`Interrogation des sources officielles : ${done} sur ${total}…`); if (S.tab === 'synthese') render(); };
+  const pending = new Set();
+  const tick = () => {
+    done++; progress(done, total);
+    const left = [...pending].map((k) => SRC[k].lbl.toLowerCase());
+    status(`Sources interrogées : ${done} sur ${total}${left.length && left.length <= 3 ? `. En attente : ${left.join(', ')}` : ''}…`);
+    if (S.tab === 'synthese') render();
+  };
   progress(0, total); status('Recherche de la commune…'); render();
   try {
     const cen = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2];
@@ -1333,13 +1604,20 @@ async function analyse() {
       const t0 = performance.now();
       if (s.needCom && !S.com) S.err[s.id] = 'commune non identifiée';
       else {
-        try { S.data[s.id] = await s.run(ctx); } catch (e) { if (e instanceof Cancelled) throw e; S.err[s.id] = e.message || String(e); }
+        // Chaque source a un délai global : un service lent ne bloque plus la fin de l'analyse
+        const sc = new AbortController(), lim = s.deadline || SRC_DEADLINE;
+        const kill = () => sc.abort(); sig.addEventListener('abort', kill);
+        const timer = setTimeout(() => { sc.late = true; sc.abort(); }, lim);
+        pending.add(s.id);
+        try { S.data[s.id] = await s.run({ ...ctx, sig: sc.signal }); }
+        catch (e) { if (sig.aborted) throw new Cancelled(); S.err[s.id] = sc.late ? `pas de réponse complète en ${Math.round(lim / 1000)} s, service trop lent` : e.message || String(e); }
+        finally { clearTimeout(timer); sig.removeEventListener('abort', kill); pending.delete(s.id); }
       }
       S.ms[s.id] = performance.now() - t0;
       tick();
     });
   } catch (e) {
-    if (S.ctrl === ctrl) { S.running = false; stopBtn.hidden = true; progress(1, 1); status('Analyse arrêtée. Déplacez la carte et relancez quand vous voulez.'); S.data = {}; render(); }
+    if (S.ctrl === ctrl) { S.running = false; stopBtn.hidden = true; progress(1, 1); status('Analyse arrêtée. La carte peut être déplacée avant de relancer.'); S.data = {}; render(); }
     if (!(e instanceof Cancelled)) console.error(e);
     return;
   }
@@ -1348,7 +1626,7 @@ async function analyse() {
   cross(); lensClasses(); draw(); render();
   $('#report').disabled = false;
   const ko = SOURCES.filter((s) => S.err[s.id]).length;
-  status(`${plural(S.B.length, 'bâtiment')} croisé${S.B.length > 1 ? 's' : ''} avec ${SOURCES.length - ko} sources sur ${SOURCES.length}${ko ? ` (${ko} indisponible${ko > 1 ? 's' : ''} : voir l'onglet Sources)` : ''}. Cliquez sur un bâtiment pour sa fiche.`);
+  status(`${plural(S.B.length, 'bâtiment')} croisé${S.B.length > 1 ? 's' : ''} avec ${SOURCES.length - ko} sources sur ${SOURCES.length}${ko ? ` (${ko} sans réponse, détail dans l'onglet Sources)` : ''}. Un clic sur un bâtiment ouvre sa fiche.`);
   try { history.replaceState(null, '', `#${map.getZoom()}/${map.getCenter().lat.toFixed(5)}/${map.getCenter().lng.toFixed(5)}`); } catch (e) { /* adresse facultative */ }
 }
 $('#run').addEventListener('click', analyse);
@@ -1371,62 +1649,94 @@ const EXAMPLES = [
   { n: 'Nice', d: 'séisme, inondation', c: [43.7009, 7.2683], z: 16 },
 ];
 function welcome() {
-  return `<h2>Ce que dit l'État sur les risques, bâtiment par bâtiment</h2>
-  <p class="lead">RésiTerre interroge en direct une vingtaine de sources publiques officielles (plans de prévention, cartes des territoires à risque important d'inondation, inventaires du BRGM, Vigicrues, Géorisques, BD TOPO) et les croise avec chaque bâtiment de la zone. Il ne calcule aucun « niveau de risque » : il montre ce que dit chaque source, avec son lien.</p>
-  <ol class="steps"><li>Cherchez une commune ou une adresse, ou déplacez la carte.</li><li>Cadrez un quartier (jusqu'à ${MAX_KM2} km²) et cliquez sur <b>Analyser cette zone</b>. Vous pouvez arrêter à tout moment.</li><li>Cliquez sur un bâtiment pour sa fiche, changez la couleur des bâtiments avec le menu de la carte, puis créez le rapport.</li></ol>
+  return `<h2>Lire, bâtiment par bâtiment, ce que disent les données publiques sur les risques</h2>
+  <p class="lead">RésiTerre interroge en direct ${SOURCES.length} sources officielles (plans de prévention, cartes de la directive inondation, Vigicrues, inventaires du BRGM, Géorisques, BD TOPO, INSEE, Géoportail de l'urbanisme) et les superpose à chaque bâtiment d'un quartier. Chaque information garde les termes, les classes et le lien de sa source ; aucune note synthétique ne vient s'y substituer.</p>
+  <ol class="steps"><li>Cherchez une commune ou une adresse, ou déplacez la carte.</li><li>Cadrez un quartier, ${MAX_KM2} km² au plus, puis lancez <b>Analyser cette zone</b>. L'analyse s'interrompt à tout moment.</li><li>Ouvrez la fiche d'un bâtiment d'un clic, changez la lecture de la carte avec le menu <b>Couleur des bâtiments</b>, puis créez le rapport.</li></ol>
   <h3>Exemples</h3><div class="examples">${EXAMPLES.map((e, i) => `<button class="btn sm" data-ex="${i}">${esc(e.n)} <span class="muted">${esc(e.d)}</span></button>`).join('')}</div>
-  <div class="note info">Un outil d'information et de sensibilisation : il ne remplace ni l'état des risques réglementaire (${lk('errial')}), ni la lecture du règlement des plans de prévention, ni l'avis des services de l'État.</div>
-  <h3>Pour commencer</h3><p>L'onglet <b>Comprendre</b> explique le vocabulaire (aléa, enjeu, vulnérabilité), les obligations et les bons réflexes pour chaque risque.</p>`;
+  <h3>Ce que l'outil ajoute</h3><ul>
+    <li>Le croisement de sources dispersées entre plusieurs services de l'État, à l'échelle du bâtiment et non de la commune.</li>
+    <li>Des lectures croisées : logements de plain-pied en zone inondable, établissements sensibles exposés, zones à urbaniser recoupant un aléa, habitants âgés des carreaux concernés.</li>
+    <li>Pour chaque lecture et chaque source, une fiche qui explique comment la donnée est produite, ce qu'elle permet de dire et ses limites.</li></ul>
+  <div class="note info">RésiTerre informe et sensibilise. Pour une vente ou une location, l'état des risques réglementaire s'établit sur ${lk('errial')} ; le règlement des plans de prévention et l'avis des services de l'État font foi.</div>
+  <h3>Pour commencer</h3><p>L'onglet <b>Comprendre</b> présente le vocabulaire (aléa, enjeu, vulnérabilité), les obligations et les bons réflexes pour chaque risque ; l'onglet <b>Sources</b> détaille chaque donnée.</p>`;
 }
 function srcState(k) { return S.err[k] ? 'ko' : has(k) ? 'ok' : ''; }
+const stateTxt = (k) => (S.err[k] ? 'sans réponse' : has(k) ? 'reçue' : 'en attente');
+// Habitants des carreaux INSEE contenant au moins un des bâtiments donnés (chaque carreau compté une fois)
+function carSum(bs, f = 'ind') { const seen = new Map(); for (const b of bs) if (b.car) seen.set(b.car.id_inspire || b.car, b.car); let n = 0; for (const c of seen.values()) n += +c[f] || 0; return Math.round(n); }
+function crossings() {
+  const B = S.B, D = S.data, out = [];
+  const flood = (b) => b.triFirst === 'FOR' || b.triFirst === 'MOY' || b.zich.some(isZin);
+  if (has('tri') || has('zich')) {
+    const fl = B.filter(flood);
+    const pp = fl.filter((b) => b.et === 1 && b.log > 0);
+    if (fl.length) out.push(`<b>${plural(pp.length, 'bâtiment')} de plain-pied avec logements</b> (${plural(pp.reduce((s, b) => s + b.log, 0), 'logement')}) ${pp.length > 1 ? 'se trouvent' : 'se trouve'} dans une surface inondable des scénarios fréquent ou moyen, ou dans une zone inondée Vigicrues : sans étage, leurs occupants n'ont pas de refuge en hauteur.`);
+    const es = S.E.filter((e) => e.bids.some((i) => flood(S.B[i])));
+    if (es.length) out.push(`<b>${plural(es.length, 'établissement')} sensible${es.length > 1 ? 's' : ''}</b> (enseignement, santé, secours, camping) ${es.length > 1 ? 'ont' : 'a'} au moins un bâtiment dans ces mêmes zones : ${es.slice(0, 6).map((e) => esc(e.nom)).join(', ')}${es.length > 6 ? '…' : ''}.`);
+    if (has('insee') && fl.length) out.push(`Les carreaux INSEE qui contiennent ces bâtiments inondables comptent environ <b>${fmt(carSum(fl))} habitants</b>, dont ${fmt(carSum(fl, 'ind_80p'))} de 80 ans et plus. Le chiffre porte sur les carreaux entiers, voisins compris : il situe l'ordre de grandeur de la population concernée.`);
+  }
+  if (has('plu')) {
+    const au = B.filter((b) => /^AU/.test(pluKey(b.plu)) && (b.triFirst || b.pm1.length || b.zreg.length || b.zich.some(isZin)));
+    if (au.length) out.push(`<b>${plural(au.length, 'bâtiment')}</b> en zone à urbaniser du PLU ${au.length > 1 ? 'sont' : 'est'} aussi dans une surface inondable ou un plan de prévention : la croissance urbaine y rencontre l'aléa.`);
+  }
+  if (has('argile') && has('bati')) {
+    const ar = B.filter((b) => b.arg === 3 && b.et != null && b.et <= 2 && /résidentiel/i.test(b.usage));
+    if (ar.length) out.push(`<b>${plural(ar.length, 'bâtiment')} résidentiel${ar.length > 1 ? 's' : ''} d'un ou deux niveaux</b>, profil typique des maisons individuelles les plus sensibles aux fissures, ${ar.length > 1 ? 'sont' : 'est'} en exposition forte aux argiles.`);
+  }
+  return out;
+}
 function tabSynthese() {
   if (!S.bb) return welcome();
-  if (S.running) return `<h2>Analyse en cours</h2><p class="lead">${S.com ? esc(S.com.nom) + ' · ' : ''}les sources répondent une à une. Le bouton <b>Arrêter</b> interrompt l'analyse ; un nouveau clic sur <b>Analyser cette zone</b> la relance sur la vue actuelle.</p><ul class="srclist">${SOURCES.map((s) => `<li class="${srcState(s.id)}">${S.err[s.id] ? '✕' : has(s.id) ? '✓' : '…'} ${esc(s.lbl)}</li>`).join('')}</ul>`;
+  if (S.running) return `<h2>Analyse en cours</h2><p class="lead">${S.com ? esc(S.com.nom) + ' · ' : ''}Les sources répondent l'une après l'autre. <b>Arrêter</b> interrompt l'analyse ; <b>Analyser cette zone</b> la relance sur la vue affichée.</p><ul class="srclist">${SOURCES.map((s) => `<li class="${srcState(s.id)}"><span class="state">${stateTxt(s.id)}</span> ${esc(s.lbl)}</li>`).join('')}</ul>`;
   if (!S.B.length && !has('bati')) return welcome();
   const B = S.B, D = S.data, g = D.gaspar;
   const anyInfo = B.filter((b) => b.n > 0);
+  const withPop = has('insee') && (D.insee || []).length;
   const row = (x) => {
-    if (x.src.every((k) => S.err[k])) return `<tr><td>${esc(x.lbl)}</td><td class="n" colspan="3"><span class="pill ko">source indisponible</span></td></tr>`;
+    if (x.src.every((k) => S.err[k])) return `<tr><td>${esc(x.lbl)}</td><td class="n" colspan="${withPop ? 4 : 3}"><span class="pill ko">source sans réponse</span></td></tr>`;
     const bs = B.filter(x.test);
     const es = S.E.filter((e) => e.bids.some((i) => x.test(S.B[i])));
-    return `<tr class="${bs.length ? 'go' : ''}" data-ind="${x.id}"><td${x.sub ? ' style="padding-left:16px"' : ''}>${esc(x.lbl)}</td><td class="n">${fmt(bs.length)}</td><td class="n">${fmt(bs.reduce((s, b) => s + b.log, 0))}</td><td class="n">${fmt(es.length)}</td></tr>`;
+    return `<tr class="${bs.length ? 'go' : ''}" data-ind="${x.id}"><td${x.sub ? ' style="padding-left:16px"' : ''}>${esc(x.lbl)}</td><td class="n">${fmt(bs.length)}</td><td class="n">${fmt(bs.reduce((s, b) => s + b.log, 0))}</td>${withPop ? `<td class="n">${bs.length ? fmt(carSum(bs)) : '0'}</td>` : ''}<td class="n">${fmt(es.length)}</td></tr>`;
   };
   const notes = [];
-  if (D.tri && !D.tri.tri.length) notes.push('La zone n\'est pas dans un territoire à risque important d\'inondation (TRI) : il n\'y a pas de cartographie des scénarios d\'inondation ici. Cela ne signifie pas qu\'il n\'y a pas d\'aléa : voir les plans de prévention et l\'atlas des zones inondables de la commune.');
-  if (has('zich') && D.zich.length && !D.zich.some(isZin)) notes.push('Les cartes Vigicrues de la zone ne la classent qu\'en zone signalée à part (zone d\'incertitude ou derrière des digues, par exemple) : elles ne donnent pas de hauteur d\'eau ici. Voir le TRI et le plan de prévention.');
-  if (has('zich') && !D.zich.length) notes.push('Aucune zone d\'inondation Vigicrues : seuls certains tronçons de cours d\'eau surveillés sont cartographiés.');
-  if ((D.pm1 || []).length && !(D.zreg || []).length) notes.push('Les plans de prévention de la zone n\'ont pas de zonage détaillé publié en données ouvertes : seul leur périmètre est croisé. La carte de zonage figure dans le document officiel (PDF), lien dans la fiche des bâtiments et l\'onglet Commune.');
+  if (D.tri && !D.tri.tri.length) notes.push('La zone se trouve hors des territoires à risque important d\'inondation (TRI), seuls à disposer des cartes de scénarios. L\'aléa peut néanmoins exister : le plan de prévention et l\'atlas des zones inondables de la commune, dans l\'onglet Commune, en rendent compte.');
+  if (has('zich') && D.zich.length && !D.zich.some(isZin)) notes.push('Les cartes Vigicrues présentes ici ne contiennent que des zones signalées à part (incertitude, arrière de digue), sans hauteur d\'eau. Le TRI et le plan de prévention complètent la lecture.');
+  if (has('zich') && !D.zich.length) notes.push('Aucune carte Vigicrues ne couvre la zone : ces cartes existent pour une partie seulement des tronçons surveillés.');
+  if ((D.pm1 || []).length && !(D.zreg || []).length) notes.push('Le zonage détaillé des plans de prévention de la zone n\'est pas publié en données ouvertes ; seul leur périmètre est croisé. La carte de zonage se trouve dans le document officiel, accessible depuis la fiche des bâtiments et l\'onglet Commune.');
   const comFacts = g ? [
     g.sismique ? `Zone de sismicité <b>${esc(sismLbl(g.sismique))}</b>` : '',
     g.radon ? `Potentiel radon de catégorie <b>${esc(g.radon.classe_potentiel)}</b>` : '',
-    D.catnat ? `<b>${plural(D.catnat.length, 'arrêté')}</b> de catastrophe naturelle` : '',
-    g.proc ? `<b>${plural(g.proc.length, 'plan')} de prévention</b> dans la base GASPAR` : '',
+    D.catnat ? (D.catnat.length ? `<b>${plural(D.catnat.length, 'arrêté')}</b> de catastrophe naturelle` : 'Aucun arrêté de catastrophe naturelle') : '',
+    g.proc ? (g.proc.length ? `<b>${plural(g.proc.length, 'plan')} de prévention</b> dans la base GASPAR` : 'Aucun plan de prévention dans la base GASPAR') : '',
   ].filter(Boolean) : [];
+  const cx = crossings();
+  const popZone = withPop ? Math.round(D.insee.filter((f) => { const c = centroid(f.geometry); return c && inBox(c, S.bb); }).reduce((s, f) => s + (+f.properties.ind || 0), 0)) : null;
   return `<h2>${S.com ? esc(S.com.nom) : 'Zone analysée'}${S.comms.length > 1 ? ` <span class="muted">et ${S.comms.filter((c) => c.code !== (S.com || {}).code).map((c) => esc(c.nom)).join(', ')}</span>` : ''}</h2>
     <p class="muted">${fmt(km2Of(S.bb), 1)} km² · analyse du ${S.when.toLocaleDateString('fr-FR')} à ${S.when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
-    <div class="kpis"><div class="kpi"><b>${fmt(B.length)}</b><span>bâtiments croisés</span></div><div class="kpi"><b>${fmt(B.reduce((s, b) => s + b.log, 0))}</b><span>logements (BD TOPO)</span></div><div class="kpi"><b>${fmt(anyInfo.length)}</b><span>bâtiments signalés par au moins une source</span></div></div>
+    <div class="kpis"><div class="kpi"><b>${fmt(B.length)}</b><span>bâtiments croisés</span></div><div class="kpi"><b>${fmt(B.reduce((s, b) => s + b.log, 0))}</b><span>logements (BD TOPO)</span></div>${popZone != null ? `<div class="kpi"><b>${fmt(popZone)}</b><span>habitants (carreaux INSEE de la zone)</span></div>` : ''}<div class="kpi"><b>${fmt(anyInfo.length)}</b><span>bâtiments concernés par au moins une information</span></div></div>
     <h3>Ce que disent les sources</h3>
-    <div class="tblwrap"><table><tr><th>Information</th><th class="n">Bâtiments</th><th class="n">Logements</th><th class="n">Établ.</th></tr>${IND.map(row).join('')}</table></div>
-    <p class="muted" style="margin-top:6px">Cliquez sur une ligne pour mettre ces bâtiments en évidence. « Établ. » : établissements d'enseignement, de santé, de secours et campings concernés.</p>
+    <div class="tblwrap"><table><tr><th>Information</th><th class="n">Bâtiments</th><th class="n">Logements</th>${withPop ? '<th class="n" title="Habitants des carreaux INSEE de 200 m contenant au moins un de ces bâtiments">Hab.*</th>' : ''}<th class="n">Établ.</th></tr>${IND.map(row).join('')}</table></div>
+    <p class="muted" style="margin-top:6px">Un clic sur une ligne met ses bâtiments en évidence sur la carte. Établ. désigne les établissements d'enseignement, de santé, de secours et les campings.${withPop ? ' * Habitants des carreaux INSEE de 200 m qui contiennent au moins un bâtiment concerné, chaque carreau étant compté une fois : un ordre de grandeur, voisins compris.' : ''}</p>
     ${notes.map((n) => `<div class="note">${n}</div>`).join('')}
-    ${comFacts.length ? `<h3>À l'échelle de la commune</h3><ul>${comFacts.map((x) => `<li>${x}</li>`).join('')}</ul><p><button class="btn sm" data-goto="commune">Voir le détail de la commune</button></p>` : ''}
+    ${cx.length ? `<h3>Lectures croisées</h3><p class="muted">Ce que révèle la superposition des sources, sans autre calcul que le comptage.</p><ul class="cross">${cx.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
+    ${comFacts.length ? `<h3>À l'échelle de la commune</h3><ul>${comFacts.map((x) => `<li>${x}</li>`).join('')}</ul><p><button class="btn sm" data-goto="commune">Détail de la commune</button></p>` : ''}
     <h3>Aller plus loin</h3><div class="links">${S.com ? link(grCommuneReport(S.com), 'Rapport Géorisques de la commune') : ''}${lk('errial')}${lk('climadiag')}${lk('vigicrues')}</div>
-    <div class="note info">Le bouton <b>Créer le rapport</b> produit un document imprimable (ou à enregistrer en PDF) avec toutes ces informations et les liens vers chaque source.</div>`;
+    <div class="note info"><b>Créer le rapport</b> rassemble ces informations dans un document à imprimer ou à enregistrer en PDF, avec le lien vers chaque source.</div>`;
 }
 function tabBati() {
   if (!S.B.length) return S.bb ? '<p class="muted">Aucun bâtiment chargé pour cette zone.</p>' : welcome();
   const E = S.E.slice().sort((a, b) => b.ind.length - a.ind.length);
   const top = S.B.filter((b) => b.n >= 1).sort((a, b) => b.n - a.n || b.log - a.log).slice(0, 40);
   const chips = (ids) => ids.map((k) => `<span class="pill">${esc(SHORT[k])}</span>`).join('');
-  return `<h2>Bâtiments et établissements</h2><p class="lead">Les établissements accueillant des publics sensibles, puis les bâtiments signalés par le plus grand nombre de sources.</p>
+  return `<h2>Bâtiments et établissements</h2><p class="lead">D'abord les établissements qui accueillent des publics vulnérables ou servent à la gestion de crise, puis les bâtiments où se superposent le plus d'informations.</p>
     <h3>Établissements (${fmt(E.length)})</h3>
     ${E.length ? `<div class="tblwrap"><table><tr><th>Établissement</th><th>Informations relevées</th></tr>${E.map((e) => `<tr class="go" data-ll="${e.c[1]},${e.c[0]}"><td><b>${esc(e.nom)}</b><br><span class="muted">${esc(e.nature)}</span></td><td>${e.ind.length ? chips(e.ind) : '<span class="muted">aucune</span>'}</td></tr>`).join('')}</table></div>` : '<p class="muted">Aucun établissement de ce type dans la zone.</p>'}
-    <h3>Bâtiments les plus signalés</h3>
-    ${top.length ? `<div class="tblwrap"><table><tr><th>Bâtiment</th><th class="n">Log.</th><th>Informations</th></tr>${top.map((b) => `<tr class="go" data-b="${b.i}"><td>${esc(b.usage)}${b.et === 1 ? ' <span class="pill">1 niveau</span>' : ''}</td><td class="n">${fmt(b.log)}</td><td>${chips(COUNTED.filter((x) => x.test(b)).map((x) => x.id))}</td></tr>`).join('')}</table></div>` : '<p class="muted">Aucun bâtiment signalé.</p>'}
+    <h3>Bâtiments au cumul le plus élevé</h3>
+    ${top.length ? `<div class="tblwrap"><table><tr><th>Bâtiment</th><th class="n">Log.</th><th>Informations</th></tr>${top.map((b) => `<tr class="go" data-b="${b.i}"><td>${esc(b.usage)}${b.et === 1 ? ' <span class="pill">1 niveau</span>' : ''}</td><td class="n">${fmt(b.log)}</td><td>${chips(COUNTED.filter((x) => x.test(b)).map((x) => x.id))}</td></tr>`).join('')}</table></div>` : '<p class="muted">Aucun bâtiment concerné par les informations croisées.</p>'}
     <h3>Exporter</h3><div class="actions"><button class="btn sm" id="exp-csv">Tableau CSV</button><button class="btn sm" id="exp-geo">Couche GeoJSON (SIG)</button></div>
-    <p class="muted" style="margin-top:6px">Une ligne par bâtiment, avec l'identifiant BD TOPO et RNB et les informations relevées par chaque source.</p>`;
+    <p class="muted" style="margin-top:6px">Une ligne par bâtiment, avec ses identifiants BD TOPO et RNB et les informations de chaque source. Les données brutes de chaque source se téléchargent dans l'onglet Sources.</p>`;
 }
-const SHORT = { reg: 'plan de prévention', zreg: 'zonage réglementaire', tri: 'surface inondable TRI', zich: 'zone inondée Vigicrues', arg: 'argiles moyenne ou forte', old: 'massif OLD', sol: 'cavité ou mouvement', pol: 'sol pollué', canal: 'canalisation' };
+const SHORT = { ppi: 'rayon PPI nucléaire', reg: 'plan de prévention', zreg: 'zonage réglementaire', tri: 'surface inondable TRI', zich: 'zone inondée Vigicrues', arg: 'argiles moyenne ou forte', old: 'massif OLD', sol: 'cavité ou mouvement', pol: 'sol pollué', canal: 'canalisation' };
 
 function tabCommune() {
   if (!S.com) return S.bb ? '<p class="muted">Commune non identifiée pour cette zone.</p>' : welcome();
@@ -1440,7 +1750,7 @@ function tabCommune() {
   const sev = icpe.filter((x) => /seuil/i.test(x.statutSeveso || ''));
   const secheresse = cat.filter((a) => /s[ée]cheresse/i.test(a.libelle_risque_jo)).length;
   const mccB = S.B.filter((b) => Object.values(b.tri).some((s) => s.has('MCC')) && !Object.values(b.tri).some((s) => s.has('MOY') || s.has('FOR')));
-  const errLine = (k) => (S.err[k] ? `<div class="note warn">${esc(SRC[k].lbl)} : source indisponible (${esc(S.err[k])}).</div>` : '');
+  const errLine = (k) => (S.err[k] ? `<div class="note warn">${esc(SRC[k].lbl)} : la source n'a pas répondu (${esc(S.err[k])}).</div>` : '');
   return `<h2>${esc(c.nom)} <span class="muted">${esc(c.code)}</span></h2>
     <p class="muted">${c.departement ? esc(c.departement.nom) + ' · ' : ''}${c.region ? esc(c.region.nom) + ' · ' : ''}${fmt(c.population)} habitants (population légale INSEE)</p>
     <div class="links">${link(grCommuneReport(c), 'Rapport Géorisques de la commune')}${lk('climadiag')}${link(gpuMapLink(c.lon, c.lat), 'Géoportail de l\'urbanisme')}</div>
@@ -1468,7 +1778,7 @@ function tabCommune() {
     ${icpe.length ? `<p>${sev.length ? `<b>${plural(sev.length, 'établissement')} Seveso</b> : ${sev.map((x) => link(icpeLink(x.codeAIOT), x.raisonSociale) + ` <span class="muted">(${esc(x.statutSeveso.toLowerCase())})</span>`).join(', ')}.` : 'Aucun établissement Seveso dans la commune.'}</p>
       <details><summary>Toutes les installations<small>régime et état d'activité</small></summary><div class="tblwrap"><table><tr><th>Installation</th><th>Régime</th><th>Activité</th></tr>${icpe.map((x) => `<tr><td>${link(icpeLink(x.codeAIOT), x.raisonSociale)}</td><td>${esc(x.regime || '–')}</td><td>${esc(x.etatActivite || '–')}</td></tr>`).join('')}</table></div></details>
       <p><button class="btn sm" data-layer="icpe">Afficher sur la carte</button></p>` : '<p class="muted">Aucune installation classée recensée.</p>'}
-    <h3>Climat : ce que disent les références officielles</h3>
+    <h3>Climat et références officielles</h3>
     <ul><li>La trajectoire de réchauffement de référence retenue par l'État pour l'adaptation (TRACC) est de <b>+2 °C en 2030, +2,7 °C en 2050 et +4 °C en 2100</b> en France métropolitaine, par rapport à l'ère préindustrielle.</li>
       ${S.data.tri && S.data.tri.tri.length ? `<li>Dans la zone analysée, <b>${plural(mccB.length, 'bâtiment')}</b> ${mccB.length > 1 ? 'sont' : 'est'} atteint${mccB.length > 1 ? 's' : ''} par le scénario moyen avec changement climatique du TRI sans l'être par les scénarios fréquent et moyen actuels.</li>` : ''}
       ${cat.length ? `<li>${secheresse ? plural(secheresse, 'arrêté') : 'Aucun arrêté'} de catastrophe naturelle pour sécheresse (mouvements de terrain liés au retrait-gonflement des argiles) dans la commune.</li>` : ''}</ul>
@@ -1481,20 +1791,21 @@ function tabCommune() {
 }
 function tabCouches() {
   const groups = {}; WMS.forEach((w) => { (groups[w.grp] ||= []).push(w); });
-  return `<h2>Couches</h2><p class="lead">Les données croisées avec les bâtiments, puis les cartes officielles de Géorisques, affichées avec leur légende officielle.</p>
+  return `<h2>Couches</h2><p class="lead">Les données croisées avec les bâtiments, puis les cartes officielles de Géorisques, chacune avec sa légende officielle.</p>
     <h3>Données croisées</h3>${VEC.map((v) => `<div class="src" style="grid-template-columns:auto 1fr"><input type="checkbox" id="v-${v.id}" ${map.hasLayer(VL[v.id]) ? 'checked' : ''}><label for="v-${v.id}">${esc(v.lbl)}</label></div>`).join('')}
-    ${Object.entries(groups).map(([g, ws]) => `<h3>${esc(g)} : cartes officielles</h3>${ws.map((w) => `<div class="src" style="grid-template-columns:auto 1fr"><input type="checkbox" id="${w.id}" ${map.hasLayer(wmsL[w.id]) ? 'checked' : ''}><label for="${w.id}">${esc(w.lbl)}</label></div>`).join('')}`).join('')}
-    <div class="note">Certaines cartes ne s'affichent qu'à partir d'un certain niveau de zoom ou ne couvrent que les territoires étudiés. Elles sont visibles en vue 2D.</div>`;
+    ${Object.entries(groups).map(([g, ws]) => `<h3>${esc(g)}, cartes officielles</h3>${ws.map((w) => `<div class="src" style="grid-template-columns:auto 1fr"><input type="checkbox" id="${w.id}" ${map.hasLayer(wmsL[w.id]) ? 'checked' : ''}><label for="${w.id}">${esc(w.lbl)}</label></div>`).join('')}`).join('')}
+    <div class="note">Certaines cartes officielles n'apparaissent qu'à partir d'un niveau de zoom donné ou ne couvrent que les territoires étudiés. Elles s'affichent en vue 2D.</div>`;
 }
 function tabComprendre() {
   return `<h2>Comprendre les risques</h2>
-    <p class="lead">Un <b>risque</b> naît de la rencontre d'un <b>aléa</b> (le phénomène : une crue, un feu) et d'<b>enjeux</b> (des personnes, des bâtiments) plus ou moins <b>vulnérables</b>. RésiTerre montre les aléas cartographiés et la réglementation qui s'applique aux enjeux ; la vulnérabilité de chaque bâtiment demande un diagnostic sur place.</p>
+    <p class="lead">Un <b>risque</b> naît de la rencontre d'un <b>aléa</b>, phénomène tel qu'une crue ou un feu, et d'<b>enjeux</b>, personnes et biens, plus ou moins <b>vulnérables</b>. RésiTerre montre les aléas cartographiés, la réglementation qui s'applique et une partie des enjeux (logements, habitants, établissements) ; la vulnérabilité propre à chaque bâtiment relève d'un diagnostic sur place.</p>
     <h3>Risque par risque</h3>
-    ${RISKS.map((r) => `<details><summary>${esc(r.t)}</summary>
-      <p>${esc(r.def)}</p><p><b>Dans RésiTerre :</b> ${esc(r.data)}</p>
+    ${RISKS.map((r) => `<details id="risk-${r.id}"><summary>${esc(r.t)}</summary>
+      <p>${esc(r.def)}</p><p><b>Données croisées par RésiTerre.</b> ${esc(r.data)}</p>
       <h4>Ce que prévoit la réglementation</h4><ul>${r.regl.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
       <h4>Les bons réflexes</h4><ul>${r.reflexes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-      <div class="links">${link(r.pageUrl || RISK_PAGE(r.page), 'Géorisques : ' + r.t.toLowerCase())}${r.page2 ? link(RISK_PAGE(r.page2[0]), 'Géorisques : ' + r.page2[1].toLowerCase()) : ''}${r.links.map(lk).join('')}</div></details>`).join('')}
+      <div class="links">${link(r.pageUrl || RISK_PAGE(r.page), r.pageLbl || 'Géorisques, ' + r.t.toLowerCase())}${r.page2 ? link(RISK_PAGE(r.page2[0]), 'Géorisques, ' + r.page2[1].toLowerCase()) : ''}${r.links.map(lk).join('')}</div></details>`).join('')}
+    <h3>Lire une carte de risque</h3><ul>${READING.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
     <h3>Se préparer</h3><ul>${PREPARE.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
     <div class="links">${lk('preparer')}${lk('urgence')}${lk('canicule')}${lk('vigilance')}${lk('vigicrues')}</div>
     <h3>Qui fait quoi</h3>${ACTORS.map(([a, b]) => `<div class="term"><b>${esc(a)}</b>${esc(b)}</div>`).join('')}
@@ -1505,32 +1816,53 @@ function tabComprendre() {
 function srcCount(k) {
   const d = S.data[k];
   if (d == null) return '';
-  if (Array.isArray(d)) return d.length ? plural(d.length, 'objet') : 'aucune donnée dans la zone';
-  if (k === 'tri') return d.tri.length ? `TRI ${d.tri.map((t) => t.nom.replace(/_/g, ' ')).join(', ')}` : 'zone hors TRI';
+  if (Array.isArray(d)) return d.length ? plural(d.length, 'objet') + (d.length > 1 ? ' reçus' : ' reçu') : 'aucune donnée dans la zone';
+  if (k === 'tri') return d.tri.length ? `TRI ${d.tri.map((t) => t.nom.replace(/_/g, ' ')).join(', ')}${(d.miss || []).length ? `, ${plural(d.miss.length, 'couche')} sans réponse` : ''}` : 'zone hors TRI';
   if (k === 'ssp') return `${plural(d.sis.length, 'SIS', 'SIS')}, ${plural(d.basol.length, 'site BASOL', 'sites BASOL')}, ${plural(d.casias.length, 'site CASIAS', 'sites CASIAS')}`;
   if (k === 'gaspar') return `${plural((d.proc || []).length, 'procédure')}${d.sismique ? ', zonage sismique' : ''}${d.radon ? ', radon' : ''}`;
-  return 'chargé';
+  return 'reçue';
+}
+// Données brutes d'une source, au format GeoJSON quand elles sont géolocalisées
+function rawOf(k) {
+  const d = S.data[k]; if (d == null) return null;
+  const pt = (x) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [+x.longitude, +x.latitude] }, properties: x });
+  let feats = null;
+  if (k === 'tri') feats = Object.entries(d.layers || {}).flatMap(([l, fs]) => fs.map((f) => ({ ...f, properties: { ...f.properties, couche: l } }))).concat((d.ouv || []).map((f) => ({ ...f, properties: { ...f.properties, couche: 'OUV_PROTECTION_FXX' } })));
+  else if (k === 'ssp') feats = ['sis', 'basol', 'casias'].flatMap((t) => d[t].map((f) => ({ ...f, properties: { ...f.properties, inventaire: t.toUpperCase() } })));
+  else if (Array.isArray(d) && d.length && d[0].type === 'Feature') feats = d;
+  else if (Array.isArray(d) && d.length && d[0].longitude != null) feats = d.filter((x) => x.longitude != null && x.latitude != null).map(pt);
+  if (feats) return { name: `resiterre_${slug()}_${k}.geojson`, text: JSON.stringify({ type: 'FeatureCollection', name: SRC[k].prod, features: feats.map((f) => ({ type: 'Feature', geometry: stripZ(f.geometry), properties: Object.fromEntries(Object.entries(f.properties || {}).filter(([, v]) => typeof v !== 'object' || v === null)) })) }), type: 'application/geo+json', n: feats.length };
+  return { name: `resiterre_${slug()}_${k}.json`, text: JSON.stringify(d, null, 1), type: 'application/json', n: Array.isArray(d) ? d.length : 1 };
 }
 function tabSources() {
-  return `<h2>Sources</h2><p class="lead">Toutes les données sont publiques et interrogées en direct, au moment de l'analyse, auprès des services qui les produisent ou les diffusent.</p>
-    ${S.when ? `<p class="muted">Analyse du ${S.when.toLocaleDateString('fr-FR')} à ${S.when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</p>` : ''}
-    ${SOURCES.map((s) => `<div class="src"><div><b>${esc(s.lbl)}</b><div class="meta">${esc(s.org)} · ${esc(s.prod)} · échelle : ${esc(s.scale.toLowerCase())}</div>${S.err[s.id] ? `<div class="meta" style="color:var(--warn-ink)">Indisponible : ${esc(S.err[s.id])}</div>` : has(s.id) ? `<div class="meta">${esc(srcCount(s.id))}</div>` : ''}</div><div>${link(LINKS[s.link].u, 'Source')}</div></div>`).join('')}
-    <h3>Cartes officielles affichables</h3><p>Services cartographiques de Géorisques (onglet Couches) : ${WMS.map((w) => esc(w.lbl.toLowerCase())).join(', ')}.</p>
+  const card = (s) => {
+    const raw = has(s.id) ? rawOf(s.id) : null, sv = SVC[s.svc];
+    return `<details class="srcsheet" id="src-${s.id}"><summary><span><b>${esc(s.lbl)}</b><span class="meta">${esc(s.org)} · ${esc(s.prod)}</span></span><span class="st ${srcState(s.id)}">${S.err[s.id] ? 'sans réponse' : has(s.id) ? esc(srcCount(s.id)) : ''}</span></summary>
+      <dl class="kv"><dt>Production</dt><dd>${esc(s.about)}</dd><dt>Ce qu'elle dit</dt><dd>${esc(s.says)}</dd><dt>Limites</dt><dd>${esc(s.limits)}</dd><dt>Échelle de lecture</dt><dd>${esc(s.scale)}</dd>${S.err[s.id] ? `<dt>Incident</dt><dd>${esc(S.err[s.id])}</dd>` : ''}</dl>
+      <div class="links">${link(LINKS[s.link].u, LINKS[s.link].t)}${sv ? link(sv.u, sv.t) : ''}${raw && raw.n ? `<button class="btn sm" data-raw="${s.id}">Télécharger les données de la zone (${raw.name.endsWith('geojson') ? 'GeoJSON' : 'JSON'})</button>` : ''}</div>${s.layer ? `<p class="muted">Couche interrogée : <code>${esc(s.layer)}</code></p>` : ''}</details>`;
+  };
+  const by = (sc) => SOURCES.filter((s) => sc.includes(s.scale));
+  return `<h2>Sources</h2><p class="lead">Toutes les données sont publiques et interrogées en direct, au moment de l'analyse, auprès des services qui les produisent ou les diffusent. Chaque fiche explique comment la donnée est construite, ce qu'elle permet d'affirmer et où s'arrête sa portée.</p>
+    ${S.when ? `<p class="muted">Analyse du ${S.when.toLocaleDateString('fr-FR')} à ${S.when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}. Les données de la zone se téléchargent source par source, au format GeoJSON lisible par QGIS.</p>` : ''}
+    <h3>Croisées bâtiment par bâtiment</h3>${by(['Bâtiment', 'Parcelle', 'Carreau de 200 m']).map(card).join('')}
+    <h3>Renseignées à l'échelle de la commune ou de la zone</h3>${by(['Commune', 'Zone']).map(card).join('')}
+    <h3>Cartes officielles affichables</h3><p>Services cartographiques de Géorisques, depuis l'onglet Couches : ${WMS.map((w) => esc(w.lbl.toLowerCase())).join(', ')}.</p>
     <h3>Pour approfondir</h3><div class="links">${Object.keys(LINKS).map(lk).join('')}</div>`;
 }
 function tabMethode() {
   return `<h2>Méthode</h2>
-    <p class="lead">RésiTerre n'invente ni n'extrapole aucune donnée : il interroge les sources officielles, les superpose aux bâtiments de la BD TOPO et restitue ce que chacune dit, avec ses propres termes et classes.</p>
+    <p class="lead">RésiTerre n'ajoute aucune donnée de son cru : il interroge les sources officielles, les superpose aux bâtiments de la BD TOPO et restitue ce que chacune dit, dans ses propres termes et ses propres classes.</p>
     <h3>Croisement</h3><ul>
-      <li>Un bâtiment est rattaché à une zone (plan de prévention, surface inondable, classe d'argile, secteur d'information sur les sols) quand son centre y est situé. Un grand bâtiment à cheval sur une limite peut donc être partiellement concerné.</li>
-      <li>Pour les objets ponctuels ou linéaires (cavités, mouvements de terrain, canalisations, anciens sites industriels), RésiTerre indique la distance au centre du bâtiment, dans un rayon de recherche de ${R_PT} m. Ce rayon est un choix de lecture, pas une zone réglementaire.</li>
-      <li>La distance aux massifs soumis aux obligations légales de débroussaillement est comparée au seuil de ${R_OLD} m fixé par le code forestier.</li>
-      <li>Aucune note ni aucun indice n'est calculé. La lecture « Nombre d'informations relevées » compte seulement les sources qui signalent le bâtiment.</li></ul>
+      <li>Un bâtiment est rattaché à une zone (plan de prévention, surface inondable, classe d'argile, zone de PLU, carreau INSEE) quand son centre s'y trouve. Un grand bâtiment à cheval sur une limite peut donc n'être concerné qu'en partie.</li>
+      <li>Pour les objets ponctuels ou linéaires (cavités, mouvements de terrain, canalisations, anciens sites industriels), la distance est mesurée depuis le centre du bâtiment, dans un rayon de recherche de ${R_PT} m ; pour les cours d'eau, dans un rayon de ${R_EAU} m. Ces rayons servent la lecture et ne correspondent à aucune zone réglementaire.</li>
+      <li>La distance aux massifs soumis aux obligations légales de débroussaillement est comparée au seuil de ${R_OLD} m fixé par le code forestier ; la distance aux installations nucléaires, au rayon de leur plan particulier d'intervention publié par Géorisques.</li>
+      <li>Les chiffres de population viennent des carreaux INSEE de 200 m : ils décrivent le carreau entier, jamais un bâtiment isolé.</li>
+      <li>Aucune note ni aucun indice n'est calculé. La lecture « Cumul des informations relevées » compte les sources qui concernent le bâtiment, sans les pondérer.</li></ul>
     <h3>Limites</h3><ul>
-      <li>Les données ont leur propre date et leur propre échelle : un zonage réalisé au 1/25 000 ne se lit pas à la parcelle. Le règlement d'un plan de prévention approuvé fait seul foi.</li>
-      <li>Absence d'information ne veut pas dire absence d'aléa : beaucoup de territoires ne sont couverts ni par un TRI ni par une carte Vigicrues, et les inventaires de cavités et de mouvements de terrain ne sont pas exhaustifs.</li>
+      <li>Chaque donnée a sa date et son échelle : un zonage réalisé au 1/25 000 ne se lit pas à la parcelle. Le règlement d'un plan de prévention approuvé fait seul foi.</li>
+      <li>L'absence d'information ne prouve pas l'absence d'aléa : de nombreux territoires n'ont ni TRI ni carte Vigicrues, et les inventaires de cavités et de mouvements de terrain restent incomplets.</li>
       <li>Les zonages détaillés des plans de prévention ne sont publiés en données ouvertes que dans une partie des départements ; ailleurs, seul le périmètre est croisé.</li>
-      <li>Les informations communales (sismicité, radon, catastrophes naturelles, installations classées) s'appliquent à toute la commune du centre de la zone.</li>
+      <li>Les informations communales (sismicité, radon, catastrophes naturelles, installations classées) valent pour toute la commune du centre de la zone.</li>
       <li>L'analyse porte sur ${MAX_KM2} km² et 15 000 bâtiments au plus.</li></ul>
     <h3 id="about">À propos</h3>
     <p>RésiTerre est conçu et développé par <b>Mahel Chéour</b>, géographe diplômée du Master 2 Dynamiques des Milieux et des Risques de l'Université Paris 1 Panthéon-Sorbonne, spécialisée en risques naturels, SIG et jumeaux numériques territoriaux.</p>
@@ -1538,6 +1870,24 @@ function tabMethode() {
 }
 
 /* ---------- Interactions ---------- */
+function gotoTab(t) { document.querySelector(`.tabs button[data-tab="${t}"]`).click(); }
+function showSource(k) {
+  gotoTab('sources');
+  const el = document.getElementById('src-' + k);
+  if (el) { el.open = true; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+function showRisk(id) {
+  gotoTab('comprendre');
+  const el = document.getElementById('risk-' + id);
+  if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+// liens présents dans les fiches et la légende, hors du panneau latéral
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('[data-srcref], [data-risk]');
+  if (!a) return;
+  e.preventDefault();
+  if (a.dataset.srcref) showSource(a.dataset.srcref); else showRisk(a.dataset.risk);
+});
 function setFocus(list, lbl) {
   S.focus = new Set(list.map((b) => b.i));
   $('#focust').textContent = `${lbl} : ${plural(list.length, 'bâtiment')}`; $('#focusbar').hidden = false;
@@ -1556,10 +1906,11 @@ function bind() {
   on('[data-b]', 'click', (el) => { const b = S.B[+el.dataset.b]; flyTo(b.c[0], b.c[1]); openFiche(b, S.dim === '3d' ? { lng: b.c[0], lat: b.c[1] } : L.latLng(b.c[1], b.c[0])); });
   on('[data-ll]', 'click', (el) => { const [la, lo] = el.dataset.ll.split(',').map(Number); flyTo(lo, la); });
   on('[data-ex]', 'click', (el) => { const e = EXAMPLES[+el.dataset.ex]; setDim('2d'); map.setView(e.c, e.z); $('#q').value = e.n; setTimeout(analyse, 50); });
-  on('[data-goto]', 'click', (el) => document.querySelector(`.tabs button[data-tab="${el.dataset.goto}"]`).click());
+  on('[data-goto]', 'click', (el) => gotoTab(el.dataset.goto));
   on('[data-layer]', 'click', (el) => { VL[el.dataset.layer].addTo(map); setDim('2d'); legend(); });
   VEC.forEach((v) => { const el = document.getElementById('v-' + v.id); if (el) el.addEventListener('change', () => { if (el.checked) { VL[v.id].addTo(map); reorder(); } else map.removeLayer(VL[v.id]); legend(); }); });
   WMS.forEach((w) => { const el = document.getElementById(w.id); if (el) el.addEventListener('change', () => { if (el.checked) { wmsL[w.id].addTo(map); if (S.dim === '3d') setDim('2d'); } else map.removeLayer(wmsL[w.id]); legend(); }); });
+  on('[data-raw]', 'click', (el) => { const r = rawOf(el.dataset.raw); if (r) save(r.name, r.text, r.type); });
   const c1 = document.getElementById('exp-csv'); if (c1) c1.addEventListener('click', exportCSV);
   const c2 = document.getElementById('exp-geo'); if (c2) c2.addEventListener('click', exportGeo);
 }
@@ -1587,8 +1938,10 @@ function openReport(html) {
   Promise.resolve(typeof html === 'function' ? html() : html).then((h) => write(reportShell(h.title, h.body, file)));
 }
 function sourcesTable() {
-  return `<table><tr><th>Information</th><th>Producteur et produit</th><th>État</th></tr>${SOURCES.map((s) => `<tr><td>${esc(s.lbl)}</td><td>${esc(s.org)}, ${esc(s.prod)}<br>${link(LINKS[s.link].u, LINKS[s.link].t)}</td><td>${S.err[s.id] ? 'Indisponible : ' + esc(S.err[s.id]) : esc(srcCount(s.id))}</td></tr>`).join('')}</table>`;
+  return `<table><tr><th>Information</th><th>Producteur, produit et portée</th><th>Réponse</th></tr>${SOURCES.map((s) => `<tr><td>${esc(s.lbl)}</td><td>${esc(s.org)}, ${esc(s.prod)}<br><span class="muted">${esc(s.limits)}</span><br>${link(LINKS[s.link].u, LINKS[s.link].t)}${SVC[s.svc] ? ' · ' + link(SVC[s.svc].u, SVC[s.svc].t) : ''}</td><td>${S.err[s.id] ? 'Sans réponse (' + esc(S.err[s.id]) + ')' : esc(srcCount(s.id))}</td></tr>`).join('')}</table>`;
 }
+// Dans un rapport, la source citée renvoie vers sa page publique
+const srcLinks = (html) => html.replace(/<a href="#" class="srcref" data-srcref="(\w+)">([^<]*)<\/a>/g, (m, k, t) => link(LINKS[SRC[k].link].u, t)).replace(/<a href="#" class="learn"[^>]*>[^<]*<\/a>/g, '');
 function relevantRisks(bs) {
   const D = S.data, g = D.gaspar || {}, rk = (g.risques || []).map((r) => r.num_risque);
   const any = (fn) => bs.some(fn);
@@ -1601,13 +1954,14 @@ function relevantRisks(bs) {
   if (g.radon && +g.radon.classe_potentiel >= 2) ids.add('radon');
   if (any((b) => b.pm3.length || b.canal.length) || (D.icpe || []).some((x) => /seuil/i.test(x.statutSeveso || ''))) ids.add('tech');
   if (any((b) => b.sis.length || b.basol.length || b.casias.length)) ids.add('pol');
+  if (any((b) => b.ppi.length)) ids.add('nucl');
   return RISKS.filter((r) => ids.has(r.id));
 }
 function risksSection(bs) {
   const rs = relevantRisks(bs);
   if (!rs.length) return '';
-  return `<h2>Comprendre et se préparer</h2>${rs.map((r) => `<h3>${esc(r.t)}</h3><p>${esc(r.def)}</p><p><b>Réglementation.</b> ${r.regl.map(esc).join(' ')}</p><p><b>Bons réflexes.</b></p><ul>${r.reflexes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p>${[link(r.pageUrl || RISK_PAGE(r.page), 'Géorisques : ' + r.t.toLowerCase())].concat(r.links.map(lk)).join(' · ')}</p>`).join('')}
-    <h3>Pour tous</h3><ul>${PREPARE.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p>${[lk('preparer'), lk('urgence'), lk('vigilance'), lk('vigicrues')].join(' · ')}</p>`;
+  return `<h2>Comprendre et se préparer</h2>${rs.map((r) => `<h3>${esc(r.t)}</h3><p>${esc(r.def)}</p><p><b>Réglementation.</b> ${r.regl.map(esc).join(' ')}</p><p><b>Bons réflexes.</b></p><ul>${r.reflexes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p>${[link(r.pageUrl || RISK_PAGE(r.page), r.pageLbl || 'Géorisques, ' + r.t.toLowerCase())].concat(r.links.map(lk)).join(' · ')}</p>`).join('')}
+    <h3>Lire une carte de risque</h3><ul>${READING.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>Pour tous</h3><ul>${PREPARE.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p>${[lk('preparer'), lk('urgence'), lk('vigilance'), lk('vigicrues')].join(' · ')}</p>`;
 }
 function communeSection() {
   const c = S.com, D = S.data, g = D.gaspar || {};
@@ -1618,7 +1972,7 @@ function communeSection() {
   const sev = (D.icpe || []).filter((x) => /seuil/i.test(x.statutSeveso || ''));
   return `<h2>La commune de ${esc(c.nom)}</h2>
     <p>Code INSEE ${esc(c.code)} · ${c.departement ? esc(c.departement.nom) : ''} · ${fmt(c.population)} habitants (population légale INSEE) · ${link(grCommuneReport(c), 'rapport Géorisques de la commune')}</p>
-    <h3>Risques recensés par l'État</h3>${g.risques && g.risques.length ? `<p>${g.risques.filter((r) => r.num_risque.length <= 2).map((r) => esc(r.libelle_risque_long)).join(', ')}.</p>` : '<p class="muted">Aucun risque recensé ou information indisponible.</p>'}
+    <h3>Risques recensés par l'État</h3>${g.risques && g.risques.length ? `<p>${g.risques.filter((r) => r.num_risque.length <= 2).map((r) => esc(r.libelle_risque_long)).join(', ')}.</p>` : g.risques ? '<p class="muted">Aucun risque recensé dans la base GASPAR.</p>' : '<p class="muted">Base GASPAR sans réponse pendant l\'analyse.</p>'}
     <h3>Plans de prévention</h3>${(g.proc || []).length ? `<table><tr><th>Plan</th><th>État</th><th>Prescription</th><th>Approbation</th><th>Aléas</th></tr>${g.proc.map((p) => `<tr><td>${p.lien ? link(p.lien, p.nom) : esc(p.nom)}<br><span class="muted">${esc(p.modele || '')} · ${esc(p.id)}</span></td><td>${esc(p.etat)}</td><td>${esc(p.presc || '–')}</td><td>${esc(p.appro || '–')}</td><td>${p.aleas.map((a) => esc(a.lib)).join(', ')}</td></tr>`).join('')}</table>` : '<p class="muted">Aucune procédure dans la base GASPAR.</p>'}
     ${docs.size ? `<p><b>Documents officiels publiés dans la zone :</b></p><ul>${[...docs].map(([u, t]) => `<li>${link(u, t)} (PDF)</li>`).join('')}</ul>` : ''}
     <h3>Arrêtés de catastrophe naturelle (${fmt(cat.length)})</h3>${cat.length ? `<p>${Object.entries(byType).map(([k, v]) => `${esc(k)} : ${fmt(v)}`).join(' ; ')}.</p><table><tr><th>Événement</th><th>Période</th><th>Journal officiel</th></tr>${cat.slice(0, 40).map((a) => `<tr><td>${esc(a.libelle_risque_jo)}</td><td>${esc(a.date_debut_evt)}${a.date_fin_evt && a.date_fin_evt !== a.date_debut_evt ? ' au ' + esc(a.date_fin_evt) : ''}</td><td>${esc(a.date_publication_jo || '')}</td></tr>`).join('')}</table>${cat.length > 40 ? `<p class="muted">Et ${fmt(cat.length - 40)} arrêtés plus anciens.</p>` : ''}` : '<p class="muted">Aucun arrêté recensé.</p>'}
@@ -1629,7 +1983,7 @@ function communeSection() {
       <li>Zone de sismicité : ${g.sismique ? esc(sismLbl(g.sismique)) : 'non disponible'}</li>
       <li>Potentiel radon : ${g.radon ? 'catégorie ' + esc(g.radon.classe_potentiel) : 'non disponible'}</li>
       <li>Installations classées : ${fmt((D.icpe || []).length)}${sev.length ? `, dont Seveso : ${sev.map((x) => link(icpeLink(x.codeAIOT), x.raisonSociale) + ' (' + esc(x.statutSeveso.toLowerCase()) + ')').join(', ')}` : ', aucune Seveso'}</li></ul>
-    <h3>Climat</h3><p>Trajectoire de réchauffement de référence pour l'adaptation (TRACC) : +2 °C en 2030, +2,7 °C en 2050 et +4 °C en 2100 en France métropolitaine, par rapport à l'ère préindustrielle. Indicateurs climatiques de la commune : ${lk('climadiag')}.</p>`;
+    <h3>Climat</h3><p>La trajectoire de réchauffement de référence pour l'adaptation (TRACC) retient +2 °C en 2030, +2,7 °C en 2050 et +4 °C en 2100 en France métropolitaine, par rapport à l'ère préindustrielle. Les indicateurs climatiques de la commune se consultent sur ${lk('climadiag')}.</p>`;
 }
 function zoneReport() {
   const B = S.B, title = `Rapport RésiTerre : ${S.com ? S.com.nom : 'zone analysée'}`;
@@ -1642,30 +1996,32 @@ function zoneReport() {
   const top = B.filter((b) => b.n >= 2).sort((a, b) => b.n - a.n || b.log - a.log).slice(0, 30);
   const D = S.data;
   const notes = [];
-  if (D.tri && !D.tri.tri.length) notes.push('La zone n\'est pas dans un territoire à risque important d\'inondation : aucune cartographie TRI. Cela ne signifie pas absence d\'aléa.');
-  if ((D.pm1 || []).length && !(D.zreg || []).length) notes.push('Le zonage détaillé des plans de prévention n\'est pas publié en données ouvertes ici : seul le périmètre est croisé ; la carte de zonage figure dans le document officiel.');
+  if (D.tri && !D.tri.tri.length) notes.push('La zone se trouve hors des territoires à risque important d\'inondation, seuls cartographiés selon les scénarios de la directive. L\'aléa peut y exister sans figurer sur ces cartes.');
+  if ((D.pm1 || []).length && !(D.zreg || []).length) notes.push('Le zonage détaillé des plans de prévention n\'est pas publié en données ouvertes ici ; seul leur périmètre est croisé, et la carte de zonage se lit dans le document officiel.');
+  const cx = crossings();
   const body = `<h1>${esc(title)}</h1>
     <p class="muted">Zone de ${fmt(km2Of(S.bb), 1)} km² centrée sur ${((S.bb[1] + S.bb[3]) / 2).toFixed(5)} N, ${((S.bb[0] + S.bb[2]) / 2).toFixed(5)} E · analyse du ${S.when.toLocaleDateString('fr-FR')} à ${S.when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}${S.comms.length > 1 ? ` · communes couvertes : ${S.comms.map((c) => esc(c.nom)).join(', ')}` : ''}</p>
-    <div class="note">Ce rapport rassemble ce que disent les sources publiques officielles sur la zone, bâtiment par bâtiment. Il ne calcule aucun niveau de risque et ne remplace pas l'état des risques réglementaire (${lk('errial')}).</div>
-    <h2>Ce que disent les sources</h2><p>${fmt(B.length)} bâtiments de la BD TOPO croisés, ${fmt(B.reduce((s, b) => s + b.log, 0))} logements, dont ${fmt(B.filter((b) => b.n > 0).length)} bâtiments signalés par au moins une source.</p>
+    <div class="note">Ce rapport rassemble, bâtiment par bâtiment, ce que disent les sources publiques officielles sur la zone. Chaque information conserve les termes de sa source ; pour une vente ou une location, l'état des risques réglementaire s'établit sur ${lk('errial')}.</div>
+    <h2>Ce que disent les sources</h2><p>${fmt(B.length)} bâtiments de la BD TOPO croisés, totalisant ${fmt(B.reduce((s, b) => s + b.log, 0))} logements ; ${fmt(B.filter((b) => b.n > 0).length)} d'entre eux sont concernés par au moins une information.</p>
     <table><tr><th>Information</th><th class="n">Bâtiments</th><th class="n">Logements</th></tr>${ind}</table>
     ${notes.map((n) => `<div class="note warn">${esc(n)}</div>`).join('')}
+    ${cx.length ? `<h2>Lectures croisées</h2><ul>${cx.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
     ${E.length ? `<h2>Établissements concernés</h2><table><tr><th>Établissement</th><th>Informations relevées</th></tr>${E.map((e) => `<tr><td><b>${esc(e.nom)}</b><br><span class="muted">${esc(e.nature)}</span></td><td>${e.ind.map((k) => esc(IND.find((x) => x.id === k).lbl)).join('<br>')}</td></tr>`).join('')}</table>` : ''}
-    ${top.length ? `<h2>Bâtiments signalés par plusieurs sources</h2><table><tr><th>Bâtiment</th><th class="n">Log.</th><th>Informations</th><th>Liens</th></tr>${top.map((b) => `<tr><td>${esc(b.usage)}${b.etab ? '<br><span class="muted">' + esc(b.etab.toponyme || b.etab.nature_detaillee || '') + '</span>' : ''}</td><td class="n">${fmt(b.log)}</td><td>${COUNTED.filter((x) => x.test(b)).map((x) => esc(SHORT[x.id])).join(', ')}</td><td>${link(grAddressReport(b.c[0], b.c[1], '', S.com && S.com.code, S.com && S.com.nom), 'Géorisques')}${b.rnb ? ' · ' + link(rnbLink(b.rnb), 'RNB') : ''}</td></tr>`).join('')}</table>` : ''}
+    ${top.length ? `<h2>Bâtiments où plusieurs informations se superposent</h2><table><tr><th>Bâtiment</th><th class="n">Log.</th><th>Informations</th><th>Liens</th></tr>${top.map((b) => `<tr><td>${esc(b.usage)}${b.etab ? '<br><span class="muted">' + esc(b.etab.toponyme || b.etab.nature_detaillee || '') + '</span>' : ''}</td><td class="n">${fmt(b.log)}</td><td>${COUNTED.filter((x) => x.test(b)).map((x) => esc(SHORT[x.id])).join(', ')}</td><td>${link(grAddressReport(b.c[0], b.c[1], '', S.com && S.com.code, S.com && S.com.nom), 'Géorisques')}${b.rnb ? ' · ' + link(rnbLink(b.rnb), 'RNB') : ''}</td></tr>`).join('')}</table>` : ''}
     ${communeSection()}
     ${risksSection(B)}
     <h2>Sources</h2>${sourcesTable()}
-    <h2>Méthode et limites</h2><ul><li>Un bâtiment est rattaché à une zone quand son centre y est situé ; les distances (cavités, canalisations, massifs forestiers) sont mesurées depuis ce centre, dans un rayon de recherche de ${R_PT} m.</li><li>Les données ont leur propre date et leur propre échelle ; le règlement d'un plan de prévention approuvé fait seul foi.</li><li>Absence d'information ne veut pas dire absence d'aléa : les cartographies ne couvrent pas tout le territoire et les inventaires ne sont pas exhaustifs.</li></ul>
-    <h2>Vocabulaire</h2><div class="cols">${GLOSSARY.filter(([t]) => /^(Aléa|Enjeux|Vulnérabilité|Risque|PPRN|PPRT|TRI|Période de retour|Catastrophe naturelle|OLD|État des risques|DICRIM|PCS)/.test(t)).map(([a, b]) => `<p><b>${esc(a)}.</b> ${esc(b)}</p>`).join('')}</div>`;
+    <h2>Méthode et limites</h2><ul><li>Un bâtiment est rattaché à une zone quand son centre s'y trouve ; les distances (cavités, canalisations, massifs forestiers) sont mesurées depuis ce centre, dans un rayon de recherche de ${R_PT} m.</li><li>Les chiffres de population décrivent des carreaux INSEE de 200 m entiers, voisins compris.</li><li>Chaque donnée a sa date et son échelle ; le règlement d'un plan de prévention approuvé fait seul foi.</li><li>L'absence d'information ne prouve pas l'absence d'aléa : les cartographies ne couvrent pas tout le territoire et les inventaires restent incomplets.</li></ul>
+    <h2>Vocabulaire</h2><div class="cols">${GLOSSARY.filter(([t]) => /^(Aléa|Enjeux|Vulnérabilité|Risque|PPRN|PPRT|PPI|TRI|Période de retour|Cote de référence|Zone refuge|Catastrophe naturelle|OLD|État des risques|DICRIM|PCS)/.test(t)).map(([a, b]) => `<p><b>${esc(a)}.</b> ${esc(b)}</p>`).join('')}</div>`;
   return { title, body };
 }
 async function buildingReport(b) {
   const a = await resolveAddress(b);
-  const sec = ficheSections(b).map(([h, c]) => `<h3>${esc(h)}</h3><ul>${c.replace(/ class="no"/g, '')}</ul>`).join('');
+  const sec = ficheSections(b).map(([h, c]) => `<h3>${esc(h)}</h3><ul>${srcLinks(c).replace(/ class="no"/g, '')}</ul>`).join('');
   const title = `Rapport RésiTerre : ${a ? a.label : esc(b.usage)}`;
   const body = `<h1>${esc(a ? a.label : 'Bâtiment ' + b.id)}</h1>
     <p class="muted">${a ? esc(a.src) + ' · ' : ''}${esc(b.usage)}${b.et ? ` · ${b.et} étage${b.et > 1 ? 's' : ''}` : ''}${b.h ? ` · ${fmt(b.h, 1)} m` : ''}${b.log ? ` · ${plural(b.log, 'logement')}` : ''} · identifiant BD TOPO ${esc(b.id)}${b.rnb ? ` · RNB ${link(rnbLink(b.rnb), b.rnb)}` : ''} · ${b.c[1].toFixed(5)} N, ${b.c[0].toFixed(5)} E</p>
-    <div class="note">Ce que disent les sources publiques officielles sur ce bâtiment, à la date du ${S.when.toLocaleDateString('fr-FR')}. Pour une vente ou une location, l'état des risques réglementaire se fait sur ${lk('errial')}.</div>
+    <div class="note">Ce que disent les sources publiques officielles sur ce bâtiment au ${S.when.toLocaleDateString('fr-FR')}. Pour une vente ou une location, l'état des risques réglementaire s'établit sur ${lk('errial')}.</div>
     <h2>Ce que disent les sources</h2>${sec}
     <p>${link(grAddressReport(b.c[0], b.c[1], a ? a.label : '', S.com && S.com.code, S.com && S.com.nom), 'Rapport Géorisques à cette adresse')} · ${link(gpuMapLink(b.c[0], b.c[1]), 'Géoportail de l\'urbanisme à cet endroit')}</p>
     ${communeSection()}${risksSection([b])}<h2>Sources</h2>${sourcesTable()}`;
@@ -1687,8 +2043,11 @@ const rowOf = (b) => ({
   tri_premier_scenario: b.triFirst ? TRI_SCEN[SC_ORDER.indexOf(b.triFirst)].lbl : '', tri_hauteur_scenario_moyen: htMoy(b) ? htLbl(htMoy(b)) : '',
   vigicrues_cote_station_m: b.zich.some(isZin) ? Math.min(...b.zich.filter(isZin).map((z) => z.hauteurstation || Infinity)) / 1000 : '', vigicrues_zone_a_part: b.zich.some((z) => !isZin(z)) ? 'oui' : '',
   argiles_exposition: b.arg ? ARG[b.arg] : '', massif_old_distance_m: b.old != null ? Math.round(b.old) : '', foret_distance_m: b.foret != null ? Math.round(b.foret) : '',
+  eau_distance_m: b.eau ? Math.round(b.eau.d) : '', eau_nom: b.eau ? (b.eau.p.cpx_toponyme_de_cours_d_eau || b.eau.p.cpx_toponyme_de_plan_d_eau || b.eau.p.nature || '') : '', altitude_sol_m: b.alt ?? '',
+  zone_plu: b.plu ? (b.plu.libelle || b.plu.typezone || '') : '', type_zone_plu: b.plu ? (b.plu.typezone || '') : '',
+  ppi_installation: b.ppi.map((x) => x.p.nomInstallationNucleaire).join(' | '), habitants_carreau_insee: b.car ? Math.round(+b.car.ind || 0) : '', id_carreau_insee: b.car ? b.car.id_inspire || '' : '',
   cavites_200m: b.cav.length, mouvements_200m: b.mvt.length, sis_basol: b.sis.length + b.basol.length, casias_200m: b.casias.length, canalisation_distance_m: b.canal.length ? Math.round(b.canal[0].d) : '',
-  nombre_informations: b.n, lon: b.c ? +b.c[0].toFixed(6) : '', lat: b.c ? +b.c[1].toFixed(6) : '',
+  cumul_informations: b.n, lon: b.c ? +b.c[0].toFixed(6) : '', lat: b.c ? +b.c[1].toFixed(6) : '',
 });
 function exportCSV() {
   const rows = S.B.map(rowOf); if (!rows.length) return;
@@ -1703,7 +2062,7 @@ function pickPlace(f) {
   const [lo, la] = f.geometry.coordinates, z = f.properties.type === 'municipality' ? 15 : 17;
   $('#suggest').hidden = true; $('#q').value = f.properties.label;
   setDim('2d'); map.setView([la, lo], z);
-  status('Lieu trouvé. Ajustez le cadrage si besoin, puis cliquez sur Analyser cette zone.');
+  status('Lieu trouvé. Ajustez le cadrage si besoin, puis lancez Analyser cette zone.');
 }
 function drawSuggest() {
   $('#suggest').innerHTML = sugg.map((f, i) => `<li data-i="${i}" role="option" class="${i === sel ? 'on' : ''}">${esc(f.properties.label)}<small>${f.properties.type === 'municipality' ? 'commune' : 'adresse'}</small></li>`).join('');
@@ -1733,7 +2092,7 @@ $('#about-link').addEventListener('click', (e) => { e.preventDefault(); document
   const m = location.hash.match(/^#(\d+(?:\.\d+)?)\/(-?\d+\.\d+)\/(-?\d+\.\d+)$/);
   if (m) map.setView([+m[2], +m[3]], +m[1]);
   lensClasses(); render(); legend(); zoneHint();
-  status(m ? 'Vue partagée. Cliquez sur Analyser cette zone pour lancer le croisement.' : 'Cherchez un lieu, cadrez un quartier, puis cliquez sur Analyser cette zone.');
+  status(m ? 'Vue partagée. Analyser cette zone lance le croisement.' : 'Cherchez un lieu, cadrez un quartier, puis lancez Analyser cette zone.');
 })();
 </script>
 </body>
