@@ -123,9 +123,10 @@ dl.kv dd { margin: 0; }
 .seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .seg button { border: 0; background: none; padding: 6px 10px; cursor: pointer; font-size: 12px; }
 .seg button.on { background: var(--ink); color: var(--panel); }
+.seg button:disabled { color: var(--ink-3); cursor: wait; }
 .lens { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); font-size: 12px; max-width: 100%; }
 .lens select { border: 0; background: var(--line-2); border-radius: 6px; padding: 4px 6px; font-size: 12.5px; font-weight: 600; max-width: 260px; }
-.right { display: flex; gap: 8px; }
+.right { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .legend { position: absolute; left: 12px; bottom: 22px; z-index: 650; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.08); max-width: 290px; max-height: calc(100% - 90px); overflow-y: auto; }
 .legend h4 { margin: 0 0 5px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
 .legend h4 + p { margin: -2px 0 6px; color: var(--ink-3); font-size: 11.5px; }
@@ -160,6 +161,35 @@ details.srcsheet code { font-size: 11.5px; }
 details.flash { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .links .btn.sm { font-size: 12.5px; padding: 3px 9px; border-radius: 12px; }
 ul.cross li { margin: 6px 0; }
+.trio { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; flex-wrap: wrap; }
+.trio > div:not(.x) { flex: 1 1 90px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: center; }
+.trio b { display: block; font-size: 15px; } .trio span { font-size: 11.5px; color: var(--ink-3); } .trio .x { font-size: 18px; color: var(--ink-3); }
+.here { background: var(--accent-soft); border-radius: 8px; padding: 8px 11px; margin: 4px 0 10px; font-size: 13px; }
+.here b { color: var(--accent); } .here ul { margin: 4px 0 0; padding-left: 18px; }
+ol.reflex { padding-left: 20px; } ol.reflex li { margin: 4px 0; }
+.lab { display: grid; gap: 10px; }
+.tool { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tool h4 { margin: 0 0 4px; font-size: 14px; }
+.chips { display: inline-flex; flex-wrap: wrap; margin: 6px 0; }
+.chips button { padding: 6px 10px; font-size: 12.5px; min-height: 32px; }
+.rng { display: flex; align-items: center; gap: 10px; font-size: 13px; margin: 6px 0; }
+.rng input { flex: 1; accent-color: var(--accent); min-height: 28px; }
+.big { font-size: 13px; margin: 6px 0; } .big span { display: block; font-family: var(--mono); font-size: 30px; color: var(--accent); line-height: 1.1; }
+.wat { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: center; }
+.wat svg { width: 120px; height: 110px; } .wat p { margin: 4px 0 0; font-size: 13px; min-height: 54px; }
+.q { padding: 6px 0; display: none; } .q.cur { display: block; } .q p { margin: 0 0 6px; font-size: 13px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.opts button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 16px; padding: 6px 12px; cursor: pointer; font-size: 12.5px; min-height: 32px; }
+.opts button:hover { border-color: var(--accent); }
+.opts button.good { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.opts button.bad { background: var(--warn-bg); border-color: var(--warn-ink); color: var(--warn-ink); }
+.opts button.dim { opacity: .45; }
+.q .fb { font-size: 12.5px; color: var(--ink-3); margin: 4px 0 0; min-height: 1em; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 6px 0 10px; }
+.card { text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; background: var(--panel); color: var(--ink); cursor: pointer; font: inherit; min-height: 48px; }
+.card b { display: block; font-size: 13.5px; } .card span { display: none; font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.45; }
+.card.open { grid-column: 1 / -1; border-color: var(--accent); background: var(--accent-soft); } .card.open span { display: block; }
+@media (max-width: 420px) { .wat { grid-template-columns: 1fr; } }
 .fiche a.learn { font-size: 11px; color: #0f5b4f; white-space: nowrap; }
 .fiche a.srcref { color: inherit; text-decoration: underline dotted; }
 
@@ -234,6 +264,7 @@ ul.cross li { margin: 6px 0; }
       <div class="right">
         <div class="seg" id="dims"><button data-d="2d" class="on">2D</button><button data-d="3d">3D</button></div>
         <div class="seg" id="basemaps"><button data-b="plan" class="on">Plan</button><button data-b="ortho">Photo</button></div>
+        <div class="seg"><button id="mapdl" title="Image PNG de la vue affichée, avec sa légende, son échelle et ses sources">Télécharger la carte</button></div>
       </div>
     </div>
     <div class="focusbar" id="focusbar" hidden><span id="focust"></span><button id="focusx">Tout afficher</button></div>
@@ -256,7 +287,7 @@ ul.cross li { margin: 6px 0; }
 const MAX_KM2 = 16;        // emprise maximale analysée
 const R_PT = 200;          // rayon de recherche des objets ponctuels recensés (m)
 const R_EAU = 500;         // rayon de recherche des cours d'eau et plans d'eau (m)
-const SRC_DEADLINE = 60000; // délai maximal accordé à une source (ms)
+const SRC_DEADLINE = 30000; // délai maximal accordé à une source (ms)
 const R_OLD = 200;         // distance aux bois et forêts dans laquelle s'appliquent les OLD (code forestier)
 
 /* ---------- Utilitaires ---------- */
@@ -744,12 +775,18 @@ async function fetchProcedures({ sig, com }) {
   }));
   return out;
 }
+// Exécute une requête secondaire avec son propre délai : en cas de lenteur, elle est abandonnée sans emporter le reste
+async function withTimeout(sig, ms, fn) {
+  const c = new AbortController(); const stop = () => c.abort();
+  sig.addEventListener('abort', stop); const t = setTimeout(stop, ms);
+  try { return await fn(c.signal); } catch (e) { if (sig.aborted) throw e; return null; } finally { clearTimeout(t); sig.removeEventListener('abort', stop); }
+}
 async function fetchGaspar({ sig, com }) {
   const one = async (path) => { try { const j = await getJSON(GR_API + path, sig, 30000, true); return (j && j.data) || []; } catch (e) { if (sig.aborted) throw e; return null; } };
   const [risques, tri, papi, azi, dicrim, tim, sism, radon, proc] = await Promise.all([
     one(`gaspar/risques?code_insee=${com.code}`), one(`gaspar/tri?code_insee=${com.code}`), one(`gaspar/papi?code_insee=${com.code}`),
     one(`gaspar/azi?code_insee=${com.code}`), one(`gaspar/dicrim?code_insee=${com.code}`), one(`gaspar/tim?code_insee=${com.code}`),
-    one(`zonage_sismique?code_insee=${com.code}`), one(`radon?code_insee=${com.code}`), fetchProcedures({ sig, com }).catch((e) => { if (sig.aborted) throw e; return null; }),
+    one(`zonage_sismique?code_insee=${com.code}`), one(`radon?code_insee=${com.code}`), withTimeout(sig, 20000, (s2) => fetchProcedures({ sig: s2, com })),
   ]);
   return {
     risques: risques && risques[0] ? risques[0].risques_detail || [] : risques, tri, papi, azi, dicrim, tim, proc,
@@ -784,7 +821,7 @@ const SVC = {
   datagouv: { t: 'API de data.gouv.fr', u: 'https://www.data.gouv.fr/fr/apidoc/' },
 };
 const SOURCES = [
-  { id: 'bati', lbl: 'Bâtiments', org: 'IGN', prod: 'BD TOPO, classe bâtiment', link: 'bdtopo', scale: 'Bâtiment', svc: 'geopf', layer: 'BDTOPO_V3:batiment', deadline: 150000,
+  { id: 'bati', lbl: 'Bâtiments', org: 'IGN', prod: 'BD TOPO, classe bâtiment', link: 'bdtopo', scale: 'Bâtiment', svc: 'geopf', layer: 'BDTOPO_V3:batiment', deadline: 90000, slow: true,
     about: 'Description en trois dimensions des bâtiments de France, saisie par photogrammétrie et enrichie par les fichiers fonciers (nombre de logements, usage). Elle sert ici de base à tout le croisement.',
     says: 'Usage, nombre de logements, nombre d\'étages, hauteur, altitude du sol, identifiant du Référentiel national des bâtiments.',
     limits: 'Les attributs issus des fichiers fonciers sont parfois absents ou anciens ; la date d\'apparition sur le terrain, souvent tirée des fichiers fonciers, peut être absente ou approchée.',
@@ -804,12 +841,12 @@ const SOURCES = [
     says: 'Un bâtiment dans le périmètre peut être soumis à des travaux de renforcement prescrits par le plan.',
     limits: 'Mêmes limites de versement que pour les PPR naturels.',
     run: async ({ bb, sig }) => ((await getJSON(GPU('PM3', bb), sig)) || {}).features || [] },
-  { id: 'zreg', lbl: 'Zonages réglementaires des PPR publiés au standard national', org: 'Services de l\'État', prod: 'Couches au standard CNIG de la Géoplateforme', link: 'geoplateforme', scale: 'Bâtiment', svc: 'geopf',
+  { id: 'zreg', lbl: 'Zonages réglementaires des PPR publiés au standard national', org: 'Services de l\'État', prod: 'Couches au standard CNIG de la Géoplateforme', link: 'geoplateforme', scale: 'Bâtiment', svc: 'geopf', deadline: 40000, slow: true,
     about: 'Zones réglementaires des PPR que les directions départementales des territoires publient au standard national du CNIG, découvertes automatiquement dans le catalogue de la Géoplateforme.',
     says: 'Type de règlement de la zone (prescriptions, interdiction, interdiction stricte), code de la zone et lien vers le règlement quand il est fourni.',
     limits: 'Seule une partie des départements publie ces zonages ; ailleurs, seul le périmètre du plan est connu.',
     run: fetchLocalZones },
-  { id: 'tri', lbl: 'Surfaces inondables et hauteurs d\'eau des TRI', org: 'DREAL, ministère de la Transition écologique', prod: 'Directive inondation, rapportage 2020 (Géorisques)', link: 'georisques', scale: 'Bâtiment', svc: 'gr', layer: 'LIMITETRI_FXX', deadline: 120000,
+  { id: 'tri', lbl: 'Surfaces inondables et hauteurs d\'eau des TRI', org: 'DREAL, ministère de la Transition écologique', prod: 'Directive inondation, rapportage 2020 (Géorisques)', link: 'georisques', scale: 'Bâtiment', svc: 'gr', layer: 'LIMITETRI_FXX', deadline: 60000, slow: true,
     about: 'Cartes produites pour la directive européenne inondation dans les territoires à risque important d\'inondation, par modélisation hydraulique et analyse des crues historiques.',
     says: 'Surface inondable pour les scénarios fréquent, moyen, moyen avec changement climatique et extrême, classes de hauteur d\'eau, ouvrages de protection.',
     limits: 'Seuls les TRI sont cartographiés ; ces cartes informent et n\'ont pas la valeur réglementaire d\'un PPR.',
@@ -824,11 +861,11 @@ const SOURCES = [
       const ouv = await grWFS('OUV_PROTECTION_FXX', padBox(bb, 300), sig).catch((e) => { if (e instanceof Cancelled) throw e; return []; });
       return { tri: lim.map((f) => f.properties), layers, ouv, miss };
     } },
-  { id: 'zich', lbl: 'Zones d\'inondation cartographiées par Vigicrues', org: 'Réseau Vigicrues', prod: 'Zones d\'inondation (ZICH) de la Géoplateforme', link: 'vigicrues', scale: 'Bâtiment', svc: 'geopf', layer: 'VIGINOND-DIFFUSION:zich',
+  { id: 'zich', lbl: 'Zones d\'inondation cartographiées par Vigicrues', org: 'Réseau Vigicrues', prod: 'Zones d\'inondation (ZICH) de la Géoplateforme', link: 'vigicrues', scale: 'Bâtiment', svc: 'geopf', layer: 'VIGINOND-DIFFUSION:zich', deadline: 20000, slow: true,
     about: 'Cartes établies par les services de prévision des crues : pour chaque hauteur d\'eau à une station de référence, l\'emprise inondée correspondante.',
     says: 'La hauteur à la station à partir de laquelle le bâtiment est atteint, et la classe de hauteur d\'eau dans la zone.',
     limits: 'Seuls certains tronçons surveillés sont cartographiés ; les zones signalées à part ne portent pas de hauteur.',
-    run: async ({ bb, sig }) => ((await getJSON(GEOPF('VIGINOND-DIFFUSION:zich', bb, '&COUNT=3000'), sig, 90000)) || {}).features || [] },
+    run: async ({ bb, sig }) => ((await getJSON(GEOPF('VIGINOND-DIFFUSION:zich', bb, '&COUNT=3000'), sig, 20000)) || {}).features || [] },
   { id: 'argile', lbl: 'Exposition au retrait-gonflement des argiles', org: 'BRGM', prod: 'Carte d\'exposition (2019)', link: 'georisques', scale: 'Bâtiment', svc: 'brgm', layer: 'ALEARG_REALISE',
     about: 'Carte nationale qui combine la susceptibilité géologique des sols argileux et la sinistralité observée, publiée en 2019 pour l\'application de la loi ELAN.',
     says: 'Exposition faible, moyenne ou forte du terrain.',
@@ -1155,7 +1192,7 @@ map.attributionControl.setPrefix('RésiTerre par Mahel Chéour · Leaflet');
 const wmts = (layer, f) => `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&FORMAT=${f}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
 const BASES = { plan: wmts('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', 'image/png'), ortho: wmts('ORTHOIMAGERY.ORTHOPHOTOS', 'image/jpeg') };
 let baseKey = 'plan';
-let base2d = L.tileLayer(BASES.plan, { maxZoom: 19, attribution: '© IGN' }).addTo(map);
+let base2d = L.tileLayer(BASES.plan, { maxZoom: 19, crossOrigin: true, attribution: '© IGN' }).addTo(map);
 
 // Cartes officielles de Géorisques (affichage seul), avec leur légende officielle
 const GRS = 'https://www.georisques.gouv.fr/services';
@@ -1181,7 +1218,7 @@ const WMS = [
   { id: 'w_casias', grp: 'Technologique', lbl: 'Anciens sites industriels et activités de service (CASIAS)', layers: 'SSP_ETS_GE_POINT' },
 ];
 const wmsL = {};
-WMS.forEach((w) => { wmsL[w.id] = L.tileLayer.wms(GRS, { layers: w.layers, format: 'image/png', transparent: true, version: '1.3.0', opacity: 0.75, attribution: 'Géorisques' }); });
+WMS.forEach((w) => { wmsL[w.id] = L.tileLayer.wms(GRS, { layers: w.layers, format: 'image/png', transparent: true, version: '1.3.0', opacity: 0.75, crossOrigin: true, attribution: 'Géorisques' }); });
 const wmsLegend = (w) => `${GRS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&LAYER=${w.layers}&FORMAT=image/png&SLD_VERSION=1.1.0`;
 
 const CANVAS = L.canvas({ padding: 0.3, tolerance: 3 });
@@ -1245,7 +1282,7 @@ function init3d() {
   const c = map.getCenter();
   map3d = new maplibregl.Map({
     container: 'map3d', center: [c.lng, c.lat], zoom: map.getZoom() - 0.5, pitch: 58, bearing: -20, maxPitch: 80,
-    attributionControl: { compact: true, customAttribution: 'RésiTerre par Mahel Chéour' },
+    attributionControl: { compact: true, customAttribution: 'RésiTerre par Mahel Chéour' }, preserveDrawingBuffer: true,
     style: { version: 8, sources: { base: { type: 'raster', tiles: [BASES[baseKey]], tileSize: 256, attribution: '© IGN' } }, layers: [{ id: 'base', type: 'raster', source: 'base' }] },
   });
   map3d.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
@@ -1294,7 +1331,7 @@ document.querySelectorAll('#dims button').forEach((b) => b.addEventListener('cli
 document.querySelectorAll('#basemaps button').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('#basemaps button').forEach((x) => x.classList.toggle('on', x === b));
   baseKey = b.dataset.b;
-  map.removeLayer(base2d); base2d = L.tileLayer(BASES[baseKey], { maxZoom: 19, attribution: '© IGN' }).addTo(map); base2d.bringToBack();
+  map.removeLayer(base2d); base2d = L.tileLayer(BASES[baseKey], { maxZoom: 19, crossOrigin: true, attribution: '© IGN' }).addTo(map); base2d.bringToBack();
   if (map3d && map3d.getSource('base')) { map3d.removeLayer('base'); map3d.removeSource('base'); map3d.addSource('base', { type: 'raster', tiles: [BASES[baseKey]], tileSize: 256 }); map3d.addLayer({ id: 'base', type: 'raster', source: 'base' }, map3d.getLayer('tri3') ? 'tri3' : undefined); }
 }));
 $('#lens').innerHTML = LENSES.map((l) => `<option value="${l.id}">${esc(l.lbl)}</option>`).join('');
@@ -1304,9 +1341,9 @@ $('#lens').addEventListener('change', (e) => { S.lens = e.target.value; restyle(
 let legendSmall = false, popupOpen = false, legendRead = false;
 map.on('popupopen', () => { popupOpen = true; $('#legend').classList.add('small'); });
 map.on('popupclose', () => { popupOpen = false; $('#legend').classList.toggle('small', legendSmall); });
-function legend() {
+function legendHTML() {
   const l = LENS[S.lens];
-  let h = `<button class="min" id="legmin" aria-label="Réduire ou agrandir la légende">${legendSmall ? 'Afficher' : 'Réduire'}</button><h4>Bâtiments : ${esc(l.lbl)}</h4>`;
+  let h = `<h4>Bâtiments : ${esc(l.lbl)}</h4>`;
   if (!S.B.length) h += `<p>${esc(l.note)}</p><p class="muted">Les bâtiments prennent leur couleur après l'analyse de la zone.</p>`;
   else if (!lensOk(l)) h += '<p>La source de cette lecture n\'a pas répondu pendant l\'analyse ; les bâtiments restent en gris clair.</p>';
   else {
@@ -1324,8 +1361,11 @@ function legend() {
     const ws = WMS.filter((w) => map.hasLayer(wmsL[w.id]));
     if (ws.length) h += '<div class="sep"></div><h4>Cartes officielles de Géorisques</h4>' + ws.map((w) => `<div><b style="font-weight:600">${esc(w.lbl)}</b><img src="${wmsLegend(w)}" alt="Légende officielle : ${esc(w.lbl)}" loading="lazy"></div>`).join('');
   } else h += '<div class="sep"></div><p>La vue 3D reprend les surfaces inondables des TRI, les zonages réglementaires et les périmètres des plans de prévention avec les couleurs de la 2D. Les bâtiments sont élevés selon leur hauteur dans la BD TOPO.</p>';
+  return h;
+}
+function legend() {
   const el = $('#legend');
-  el.innerHTML = h;
+  el.innerHTML = `<button class="min" id="legmin" aria-label="Réduire ou agrandir la légende">${legendSmall ? 'Afficher' : 'Réduire'}</button>` + legendHTML();
   el.classList.toggle('small', legendSmall || popupOpen);
   $('#legmin').onclick = () => { legendSmall = !legendSmall; legend(); };
   const d = el.querySelector('details.howto'); if (d) d.addEventListener('toggle', () => { legendRead = d.open; });
@@ -1539,6 +1579,182 @@ function icpePopup(x) {
   return `<div class="fiche"><h5>${esc(x.raisonSociale)}</h5><dl><dt>Régime</dt><dd>${esc(x.regime || '–')}</dd><dt>Seveso</dt><dd>${esc(x.statutSeveso || '–')}</dd><dt>Activité</dt><dd>${esc(x.etatActivite || '–')}</dd></dl><p style="margin:8px 0 0">${link(icpeLink(x.codeAIOT), 'Fiche de l\'installation sur Géorisques')}</p><p class="muted" style="margin:4px 0 0">Position déclarée par l'inspection des installations classées.</p></div>`;
 }
 
+/* ---------- Téléchargement de la carte avec sa légende ----------
+   L'image reprend la vue affichée (fond IGN, cartes de Géorisques,
+   couches de l'analyse), la légende complète, l'échelle, les sources et
+   la date. Les tuiles sont rechargées en mode CORS pour être copiées. */
+const loadImg = (src) => new Promise((ok) => {
+  const im = new Image(); im.crossOrigin = 'anonymous';
+  im.onload = () => ok(im);
+  im.onerror = () => { const j = new Image(); j.crossOrigin = 'anonymous'; j.onload = () => ok(j); j.onerror = () => ok(null); j.src = src + (src.includes('?') ? '&' : '?') + 'cors=1'; };
+  im.src = src;
+});
+function opacityOf(el, stop) { let o = 1; for (let e = el; e && e !== stop; e = e.parentElement) o *= +getComputedStyle(e).opacity; return o; }
+function wrapLines(ctx, txt, w) {
+  const out = []; let line = '';
+  for (const word of String(txt).replace(/\s+/g, ' ').trim().split(' ')) {
+    const t = line ? line + ' ' + word : word;
+    if (ctx.measureText(t).width > w && line) { out.push(line); line = word; } else line = t;
+  }
+  if (line) out.push(line);
+  return out;
+}
+async function drawMap2d(ctx, W, H) {
+  const box = $('#map').getBoundingClientRect();
+  ctx.fillStyle = '#e9ece8'; ctx.fillRect(0, 0, W, H);
+  const pos = (el) => { const r = el.getBoundingClientRect(); return [r.left - box.left, r.top - box.top, r.width, r.height]; };
+  const tiles = [...map.getPane('tilePane').querySelectorAll('img.leaflet-tile-loaded')].filter((t) => getComputedStyle(t).visibility !== 'hidden');
+  const ims = await Promise.all(tiles.map((t) => loadImg(t.src)));
+  let miss = 0;
+  tiles.forEach((t, i) => {
+    if (!ims[i]) { miss++; return; }
+    const [x, y, w, h] = pos(t);
+    if (x > W || y > H || x + w < 0 || y + h < 0) return;
+    ctx.globalAlpha = opacityOf(t, $('#map')); ctx.drawImage(ims[i], x, y, w, h);
+  });
+  ctx.globalAlpha = 1;
+  for (const c of map.getPane('overlayPane').querySelectorAll('canvas')) { const [x, y, w, h] = pos(c); ctx.drawImage(c, x, y, w, h); }
+  for (const m of map.getPane('markerPane').querySelectorAll('.leaflet-marker-icon')) {
+    const d = m.firstElementChild || m, cs = getComputedStyle(d), [x, y, w, h] = pos(d);
+    ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, w / 2, 0, Math.PI * 2);
+    ctx.fillStyle = cs.backgroundColor; ctx.fill(); ctx.lineWidth = parseFloat(cs.borderTopWidth) || 0;
+    if (ctx.lineWidth) { ctx.strokeStyle = cs.borderTopColor; ctx.stroke(); }
+    if (d.textContent.trim()) { ctx.fillStyle = cs.color; ctx.font = `600 ${cs.fontSize} sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(d.textContent.trim(), x + w / 2, y + h / 2 + 0.5); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
+  }
+  return miss;
+}
+function drawMap3d(ctx, W, H) {
+  return new Promise((ok) => {
+    map3d.once('render', () => { ctx.drawImage(map3d.getCanvas(), 0, 0, W, H); ok(0); });
+    map3d.triggerRepaint();
+  });
+}
+// Dessine la légende ; renvoie la hauteur utilisée. Sans contexte de dessin, mesure seulement.
+async function drawLegend(ctx, x0, y0, w) {
+  const host = document.createElement('div');
+  host.className = 'legend';
+  host.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}px;max-width:none;max-height:none;overflow:visible`;
+  host.innerHTML = legendHTML();
+  host.querySelectorAll('details').forEach((d) => { d.open = true; });
+  document.body.appendChild(host);
+  const imgs = new Map();
+  await Promise.all([...host.querySelectorAll('img')].map(async (im) => imgs.set(im, await loadImg(im.src))));
+  let y = y0;
+  const text = (t, font, col, lh, indent = 0) => {
+    ctx.font = font; ctx.fillStyle = col;
+    for (const ln of wrapLines(ctx, t, w - indent)) { ctx.fillText(ln, x0 + indent, y + lh * 0.78); y += lh; }
+  };
+  const swatch = (i, x, yy) => {
+    const cs = getComputedStyle(i);
+    ctx.save(); ctx.globalAlpha = +cs.opacity;
+    if (i.classList.contains('line')) {
+      ctx.strokeStyle = cs.borderTopColor; ctx.lineWidth = parseFloat(cs.borderTopWidth) || 2;
+      ctx.setLineDash(cs.borderTopStyle === 'dashed' ? [4, 3] : []);
+      ctx.beginPath(); ctx.moveTo(x, yy + 6); ctx.lineTo(x + 15, yy + 6); ctx.stroke();
+    } else {
+      const pt = i.classList.contains('pt'), sw = pt ? parseFloat(cs.width) || 11 : 15, sh = pt ? sw : 11, bw = parseFloat(cs.borderTopWidth) || 0;
+      ctx.beginPath();
+      if (pt) ctx.arc(x + sw / 2, yy + 6, sw / 2, 0, Math.PI * 2); else ctx.rect(x, yy + 0.5, sw, sh);
+      ctx.fillStyle = cs.backgroundColor; ctx.fill();
+      if (bw) { ctx.lineWidth = bw; ctx.strokeStyle = cs.borderTopColor; ctx.setLineDash(cs.borderTopStyle === 'dashed' ? [3, 2] : []); ctx.stroke(); }
+      if (i.textContent.trim()) { ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.fillStyle = '#18211f'; ctx.font = '600 8px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(i.textContent.trim(), x + sw / 2, yy + 9); ctx.textAlign = 'left'; }
+    }
+    ctx.restore();
+  };
+  const walk = (el) => {
+    for (const n of el.childNodes) {
+      if (n.nodeType !== 1) continue;
+      const tag = n.tagName;
+      if (tag === 'H4') { y += y > y0 ? 4 : 0; text(n.textContent.toUpperCase(), '600 10.5px sans-serif', '#66726b', 15); y += 3; }
+      else if (tag === 'SUMMARY') text(n.textContent, '600 11.5px sans-serif', '#0f5b4f', 16);
+      else if (tag === 'P') { text(n.textContent, '11.5px sans-serif', n.classList.contains('muted') ? '#66726b' : '#435049', 15); y += 4; }
+      else if (tag === 'B') text(n.textContent, '600 12px sans-serif', '#18211f', 16);
+      else if (tag === 'IMG') {
+        const im = imgs.get(n);
+        if (im && im.naturalWidth > 1) { const s = Math.min(1, w / im.naturalWidth), ih = im.naturalHeight * s; ctx.drawImage(im, x0, y + 2, im.naturalWidth * s, ih); y += ih + 8; }
+        else text('Légende officielle indisponible : ' + (n.alt || ''), 'italic 11px sans-serif', '#66726b', 15);
+      } else if (n.classList.contains('sep')) { ctx.fillStyle = '#dde2de'; ctx.fillRect(x0, y + 6, w, 1); y += 13; }
+      else if (n.classList.contains('row')) {
+        const i = n.querySelector('i'), yy = y;
+        if (i) swatch(i, x0, yy + 2);
+        const lab = [...n.childNodes].filter((c) => c !== i).map((c) => c.textContent).join('').trim();
+        text(lab, '12px sans-serif', '#18211f', 16, 22); y += 2;
+      } else walk(n);
+    }
+  };
+  walk(host);
+  host.remove();
+  return y - y0;
+}
+async function downloadMap() {
+  const btn = $('#mapdl'); if (btn.disabled) return;
+  btn.disabled = true; const old = btn.textContent; btn.textContent = 'Préparation…';
+  try {
+    const d3 = S.dim === '3d' && map3d;
+    const mb = (d3 ? $('#map3d') : $('#map')).getBoundingClientRect();
+    const MW = Math.round(mb.width), MH = Math.round(mb.height), LW = 300, PAD = 18, HEAD = 64;
+    const k = 2, l = LENS[S.lens];
+    const meas = document.createElement('canvas').getContext('2d');
+    const legH = await drawLegend(meas, 0, 0, LW);
+    const now = new Date(), when = S.when || now;
+    const title = `${S.com ? S.com.nom : 'Carte'} · ${l.lbl}`;
+    const srcK = [...new Set(l.src || [])].filter((x) => SRC[x]);
+    const ws = d3 ? [] : WMS.filter((w) => map.hasLayer(wmsL[w.id]));
+    const foot = [
+      `Fond de carte : IGN, ${baseKey === 'ortho' ? 'photographies aériennes (BD ORTHO)' : 'Plan IGN'}.${srcK.length ? ' Bâtiments colorés selon : ' + srcK.map((x) => `${SRC[x].org}, ${SRC[x].prod}`).join(' ; ') + '.' : ''}${ws.length ? ' Cartes officielles de Géorisques : ' + ws.map((w) => w.lbl).join(' ; ') + '.' : ''}`,
+      `Données publiques interrogées le ${when.toLocaleDateString('fr-FR')}. Carte d'information : elle ne remplace ni l'état des risques réglementaire ni le règlement des plans de prévention. Liens vers chaque source dans le rapport et l'onglet Sources.`,
+      `RésiTerre, conçu et développé par Mahel Chéour (mahelchr@gmail.com) · ${location.origin + location.pathname}`,
+    ];
+    const FW = MW + LW + PAD * 3;
+    meas.font = '11px sans-serif';
+    const footLines = foot.flatMap((t) => wrapLines(meas, t, FW - PAD * 2));
+    const bodyH = Math.max(MH, legH), FH = footLines.length * 15 + PAD + 6;
+    const FHt = HEAD + bodyH + PAD + FH;
+    const cv = document.createElement('canvas'); cv.width = FW * k; cv.height = FHt * k;
+    const ctx = cv.getContext('2d'); ctx.scale(k, k);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, FW, FHt);
+    ctx.fillStyle = '#18211f'; ctx.font = '600 19px sans-serif'; ctx.fillText(title, PAD, 30, FW - PAD * 2);
+    ctx.fillStyle = '#66726b'; ctx.font = '12px sans-serif';
+    const c = d3 ? map3d.getCenter() : map.getCenter();
+    ctx.fillText(`Vue ${d3 ? '3D' : '2D'} centrée sur ${c.lat.toFixed(5)} N, ${c.lng.toFixed(5)} E${S.bb ? ` · zone analysée de ${fmt(km2Of(S.bb), 1)} km²` : ''} · carte produite le ${now.toLocaleDateString('fr-FR')}`, PAD, 50, FW - PAD * 2);
+    // carte
+    const mc = document.createElement('canvas'); mc.width = MW * k; mc.height = MH * k;
+    const mx = mc.getContext('2d'); mx.scale(k, k);
+    const miss = d3 ? await drawMap3d(mx, MW, MH) : await drawMap2d(mx, MW, MH);
+    ctx.drawImage(mc, PAD, HEAD, MW, MH);
+    ctx.strokeStyle = '#c9d0cb'; ctx.lineWidth = 1; ctx.strokeRect(PAD + 0.5, HEAD + 0.5, MW - 1, MH - 1);
+    // échelle et nord (2D seulement : la 3D est inclinée)
+    if (!d3) {
+      const sl = document.querySelector('.leaflet-control-scale-line');
+      if (sl) {
+        const sw = sl.getBoundingClientRect().width, sx = PAD + 12, sy = HEAD + MH - 16;
+        ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(sx - 6, sy - 18, sw + 12, 26);
+        ctx.strokeStyle = '#18211f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy - 5); ctx.lineTo(sx, sy); ctx.lineTo(sx + sw, sy); ctx.lineTo(sx + sw, sy - 5); ctx.stroke();
+        ctx.fillStyle = '#18211f'; ctx.font = '11px sans-serif'; ctx.fillText(sl.textContent.trim(), sx + 2, sy - 6);
+      }
+      const nx = PAD + MW - 24, ny = HEAD + 22;
+      ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(nx, ny + 4, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#18211f'; ctx.beginPath(); ctx.moveTo(nx, ny - 8); ctx.lineTo(nx + 6, ny + 8); ctx.lineTo(nx, ny + 4); ctx.lineTo(nx - 6, ny + 8); ctx.closePath(); ctx.fill();
+      ctx.font = '600 9px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('N', nx, ny + 17); ctx.textAlign = 'left';
+    }
+    // légende
+    await drawLegend(ctx, PAD * 2 + MW, HEAD, LW);
+    // pied
+    ctx.fillStyle = '#dde2de'; ctx.fillRect(PAD, HEAD + bodyH + PAD / 2, FW - PAD * 2, 1);
+    ctx.fillStyle = '#435049'; ctx.font = '11px sans-serif';
+    footLines.forEach((t, i) => ctx.fillText(t, PAD, HEAD + bodyH + PAD + 10 + i * 15));
+    const slug = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '_').replace(/^_|_$/g, '').toLowerCase();
+    const name = `resiterre_${slug(S.com ? S.com.nom : 'carte')}_${slug(l.lbl).slice(0, 40)}_${now.toISOString().slice(0, 10)}.png`;
+    const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png'));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    if (miss) status(`Carte téléchargée ; ${plural(miss, 'tuile')} du fond n'${miss > 1 ? 'ont' : 'a'} pas pu être copiée${miss > 1 ? 's' : ''}.`);
+  } catch (e) {
+    status('Le téléchargement de la carte a échoué : ' + e.message);
+  } finally { btn.disabled = false; btn.textContent = old; }
+}
+$('#mapdl').addEventListener('click', downloadMap);
+
 /* ---------- Analyse ---------- */
 const status = (t) => { $('#status').textContent = t; };
 function viewBbox() {
@@ -1563,6 +1779,11 @@ const stopBtn = document.createElement('button');
 stopBtn.className = 'btn stop'; stopBtn.textContent = 'Arrêter'; stopBtn.hidden = true;
 $('#run').after(stopBtn);
 stopBtn.addEventListener('click', () => { if (S.ctrl) S.ctrl.abort(); });
+// Terminer l'analyse sans les dernières sources encore en attente
+const skipBtn = document.createElement('button');
+skipBtn.className = 'btn'; skipBtn.textContent = 'Terminer sans attendre'; skipBtn.hidden = true;
+stopBtn.after(skipBtn);
+skipBtn.addEventListener('click', () => { for (const sc of (S.pending || new Map()).values()) { sc.skipped = true; sc.abort(); } skipBtn.hidden = true; });
 
 function progress(done, total) {
   const p = $('#progress'); p.hidden = done >= total; p.firstElementChild.style.width = `${Math.round(done / total * 100)}%`;
@@ -1581,11 +1802,14 @@ async function analyse() {
   map.closePopup(); popup3d && popup3d.remove();
   if (map3d) fill3d();
   const total = SOURCES.length + 1; let done = 0;
-  const pending = new Set();
+  const pending = new Map();
+  S.pending = pending;
   const tick = () => {
     done++; progress(done, total);
-    const left = [...pending].map((k) => SRC[k].lbl.toLowerCase());
-    status(`Sources interrogées : ${done} sur ${total}${left.length && left.length <= 3 ? `. En attente : ${left.join(', ')}` : ''}…`);
+    const left = [...pending.keys()].map((k) => SRC[k].lbl.toLowerCase());
+    const few = left.length && left.length <= 3 && done >= total - 3;
+    status(`Sources interrogées : ${done} sur ${total}${few ? `. En attente : ${left.join(', ')}` : ''}…`);
+    skipBtn.hidden = !few;
     if (S.tab === 'synthese') render();
   };
   progress(0, total); status('Recherche de la commune…'); render();
@@ -1600,7 +1824,9 @@ async function analyse() {
     S.com = c0 ? { ...c0, lon: c0.centre ? c0.centre.coordinates[0] : cen[0], lat: c0.centre ? c0.centre.coordinates[1] : cen[1] } : null;
     tick();
     const ctx = { bb, sig, com: S.com };
-    await pool(SOURCES, 6, async (s) => {
+    // les sources les plus lentes partent en premier
+    const order = SOURCES.slice().sort((a, b) => (b.slow ? 1 : 0) - (a.slow ? 1 : 0));
+    await pool(order, 8, async (s) => {
       const t0 = performance.now();
       if (s.needCom && !S.com) S.err[s.id] = 'commune non identifiée';
       else {
@@ -1608,21 +1834,21 @@ async function analyse() {
         const sc = new AbortController(), lim = s.deadline || SRC_DEADLINE;
         const kill = () => sc.abort(); sig.addEventListener('abort', kill);
         const timer = setTimeout(() => { sc.late = true; sc.abort(); }, lim);
-        pending.add(s.id);
+        pending.set(s.id, sc);
         try { S.data[s.id] = await s.run({ ...ctx, sig: sc.signal }); }
-        catch (e) { if (sig.aborted) throw new Cancelled(); S.err[s.id] = sc.late ? `pas de réponse complète en ${Math.round(lim / 1000)} s, service trop lent` : e.message || String(e); }
+        catch (e) { if (sig.aborted) throw new Cancelled(); S.err[s.id] = sc.skipped ? 'analyse terminée sans attendre ce service' : sc.late ? `pas de réponse en ${Math.round(lim / 1000)} s, service trop lent pour cette zone` : e.message || String(e); }
         finally { clearTimeout(timer); sig.removeEventListener('abort', kill); pending.delete(s.id); }
       }
       S.ms[s.id] = performance.now() - t0;
       tick();
     });
   } catch (e) {
-    if (S.ctrl === ctrl) { S.running = false; stopBtn.hidden = true; progress(1, 1); status('Analyse arrêtée. La carte peut être déplacée avant de relancer.'); S.data = {}; render(); }
+    if (S.ctrl === ctrl) { S.running = false; stopBtn.hidden = true; skipBtn.hidden = true; progress(1, 1); status('Analyse arrêtée. La carte peut être déplacée avant de relancer.'); S.data = {}; render(); }
     if (!(e instanceof Cancelled)) console.error(e);
     return;
   }
   if (S.ctrl !== ctrl) return;
-  S.running = false; S.ctrl = null; stopBtn.hidden = true; progress(1, 1);
+  S.running = false; S.ctrl = null; stopBtn.hidden = true; skipBtn.hidden = true; progress(1, 1);
   cross(); lensClasses(); draw(); render();
   $('#report').disabled = false;
   const ko = SOURCES.filter((s) => S.err[s.id]).length;
@@ -1796,22 +2022,154 @@ function tabCouches() {
     ${Object.entries(groups).map(([g, ws]) => `<h3>${esc(g)}, cartes officielles</h3>${ws.map((w) => `<div class="src" style="grid-template-columns:auto 1fr"><input type="checkbox" id="${w.id}" ${map.hasLayer(wmsL[w.id]) ? 'checked' : ''}><label for="${w.id}">${esc(w.lbl)}</label></div>`).join('')}`).join('')}
     <div class="note">Certaines cartes officielles n'apparaissent qu'à partir d'un niveau de zoom donné ou ne couvrent que les territoires étudiés. Elles s'affichent en vue 2D.</div>`;
 }
+/* ---------- Comprendre : contenu adapté à la zone analysée ---------- */
+// Termes du glossaire liés aux données effectivement présentes dans la zone
+function zoneTerms() {
+  const D = S.data, B = S.B, g = D.gaspar || {}, any = (f) => B.some(f);
+  const triOn = D.tri && D.tri.tri.length, flood = triOn || (D.zich || []).length || any((b) => b.pm1.length);
+  const sism = g.sismique ? +g.sismique.code_zone : 0, rad = g.radon ? +g.radon.classe_potentiel : 0;
+  const when = {
+    'Aléa': true, 'Enjeux': true, 'Vulnérabilité': true, 'Risque': true,
+    'Période de retour': triOn || (D.zich || []).length,
+    'PPRN': any((b) => b.pm1.length) || (g.proc || []).some((x) => x.kind === 'pprn'),
+    'PPRT': any((b) => b.pm3.length) || (g.proc || []).some((x) => x.kind === 'pprt'),
+    'PPRM': (g.proc || []).some((x) => x.kind === 'pprm'),
+    'Servitudes PM1 et PM3': (D.pm1 || []).length || (D.pm3 || []).length,
+    'Zonage réglementaire': (D.zreg || []).length || (g.proc || []).some((x) => x.zones.length),
+    'Cote de référence': (D.zreg || []).length && flood,
+    'TRI': triOn || (g.tri || []).length,
+    'Zone refuge': any((b) => b.et === 1 && (b.triFirst || b.zich.some(isZin))),
+    'AZI': (g.azi || []).length, 'PAPI': (g.papi || []).length,
+    'EAIP': flood,
+    'Zones d\'inondation Vigicrues': (D.zich || []).length,
+    'DDRM': (g.risques || []).length, 'DICRIM': (g.dicrim || []).length, 'PCS': (g.proc || []).length,
+    'État des risques (IAL)': any((b) => b.pm1.length || b.pm3.length || b.sis.length) || sism >= 2 || rad === 3,
+    'Catastrophe naturelle': (D.catnat || []).length,
+    'Fonds Barnier': (g.proc || []).some((x) => x.kind === 'pprn'),
+    'OLD': any((b) => b.old != null), 'Retrait-gonflement des argiles': any((b) => b.arg >= 1),
+    'Cavité souterraine': any((b) => b.cav.length), 'Mouvement de terrain': any((b) => b.mvt.length),
+    'Zonage sismique': !!g.sismique, 'Potentiel radon': !!g.radon,
+    'ICPE': (D.icpe || []).length, 'SIS': any((b) => b.sis.length), 'BASOL et CASIAS': any((b) => b.basol.length || b.casias.length),
+    'PPI': any((b) => b.ppi.length), 'PLU': any((b) => b.plu), 'Données carroyées': any((b) => b.car), 'TRACC': true,
+  };
+  return GLOSSARY.filter(([t]) => when[t]);
+}
+// Ce que l'analyse a trouvé pour chaque risque, en chiffres
+function zoneFacts(id) {
+  const B = S.B, D = S.data, g = D.gaspar || {}, n = (f) => B.filter(f).length, f = [];
+  const cat = (re) => (D.catnat || []).filter((a) => re.test(a.libelle_risque_jo)).length;
+  if (id === 'inond') {
+    if (D.tri && D.tri.tri.length) f.push(`${plural(n((b) => b.triFirst), 'bâtiment')} dans une surface inondable du TRI, dont ${fmt(n((b) => b.triFirst === 'FOR' || b.triFirst === 'MOY'))} dès le scénario fréquent ou moyen`);
+    if ((D.zich || []).length) f.push(`${plural(n((b) => b.zich.some(isZin)), 'bâtiment')} dans une zone inondée Vigicrues`);
+    const pp = n((b) => b.et === 1 && (b.triFirst === 'FOR' || b.triFirst === 'MOY' || b.zich.some(isZin)));
+    if (pp) f.push(`${plural(pp, 'bâtiment')} de plain-pied, sans étage refuge, dans ces zones`);
+    const c = cat(/inond|submersion|coul[ée]e/i); if (c) f.push(`${plural(c, 'arrêté')} de catastrophe naturelle pour inondation ou coulée de boue dans la commune`);
+  }
+  if (id === 'feu') { const o = n((b) => b.old != null); if (o) f.push(`${plural(o, 'bâtiment')} à moins de ${R_OLD} m d'un massif soumis aux obligations de débroussaillement`); }
+  if (id === 'arg') { const a = n((b) => b.arg >= 2); if (a) f.push(`${plural(a, 'bâtiment')} en exposition moyenne ou forte`); const c = cat(/s[ée]cheresse/i); if (c) f.push(`${plural(c, 'arrêté')} de catastrophe naturelle pour sécheresse dans la commune`); }
+  if (id === 'sol') { const c = n((b) => b.cav.length || b.mvt.length); if (c) f.push(`${plural(c, 'bâtiment')} à moins de ${R_PT} m d'une cavité ou d'un mouvement de terrain recensé`); }
+  if (id === 'seisme' && g.sismique) f.push(`Commune en zone de sismicité ${sismLbl(g.sismique)}`);
+  if (id === 'radon' && g.radon) f.push(`Commune en potentiel radon de catégorie ${g.radon.classe_potentiel}`);
+  if (id === 'tech') { const p = n((b) => b.pm3.length); if (p) f.push(`${plural(p, 'bâtiment')} dans un périmètre de PPRT`); const c = n((b) => b.canal.length); if (c) f.push(`${plural(c, 'bâtiment')} à moins de ${R_PT} m d'une canalisation`); const sev = (D.icpe || []).filter((x) => /seuil/i.test(x.statutSeveso || '')).length; if (sev) f.push(`${plural(sev, 'établissement')} Seveso dans la commune`); }
+  if (id === 'pol') { const s = n((b) => b.sis.length || b.basol.length); if (s) f.push(`${plural(s, 'bâtiment')} dans un secteur d'information sur les sols ou un site pollué`); const c = n((b) => b.casias.length); if (c) f.push(`${plural(c, 'bâtiment')} à moins de ${R_PT} m d'une ancienne activité industrielle`); }
+  if (id === 'nucl') { const p = n((b) => b.ppi.length); if (p) f.push(`${plural(p, 'bâtiment')} dans le rayon d'un plan particulier d'intervention`); }
+  return f;
+}
+const riskCard = (r, open) => {
+  const facts = S.B.length ? zoneFacts(r.id) : [];
+  return `<details id="risk-${r.id}"${open ? ' open' : ''}><summary>${esc(r.t)}${facts.length ? ' <span class="pill ok">dans votre zone</span>' : ''}</summary>
+    ${facts.length ? `<div class="here"><b>Ici</b><ul>${facts.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
+    <p>${esc(r.def)}</p><p class="muted">Données croisées : ${esc(r.data)}</p>
+    <h4>Ce que prévoit la réglementation</h4><ul>${r.regl.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+    <h4>Les bons réflexes</h4><ol class="reflex">${r.reflexes.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+    <div class="links">${link(r.pageUrl || RISK_PAGE(r.page), r.pageLbl || 'Géorisques, ' + r.t.toLowerCase())}${r.page2 ? link(RISK_PAGE(r.page2[0]), 'Géorisques, ' + r.page2[1].toLowerCase()) : ''}${r.links.map(lk).join('')}</div></details>`;
+};
+// Hauteur d'eau la plus forte publiée dans la zone (TRI, scénario moyen), pour situer le curseur
+function zoneMaxHt() { let m = 0; for (const b of S.B) { const v = htMoy(b); if (v) m = Math.max(m, v[1] && v[1] < 99 ? v[1] : v[0]); } return m; }
+const WATER = [
+  [0.15, 'Les trottoirs et les bouches d\'égout disparaissent : on ne voit plus où l\'on marche.'],
+  [0.3, 'Une voiture peut flotter et être emportée. Ne jamais traverser une route inondée.'],
+  [0.5, 'Un adulte ne tient plus debout dans le courant ; un enfant est emporté bien avant.'],
+  [1, 'L\'eau atteint les prises et le tableau électrique d\'un rez-de-chaussée : couper le courant, monter à l\'étage.'],
+  [2, 'Le rez-de-chaussée est submergé : seul un étage ou une zone refuge protège ; on attend les secours sans sortir.'],
+];
+const waterText = (h) => (WATER.filter(([v]) => h >= v).pop() || WATER[0])[1];
+const returnProb = (T, N) => 1 - Math.pow(1 - 1 / T, N);
+// Petit quiz tiré des termes de la zone : on lit une définition, on choisit le bon mot
+function buildQuiz(terms) {
+  const pool = terms.filter(([t]) => !/^(Aléa|Enjeux|Vulnérabilité|Risque)$/.test(t));
+  const src = pool.length >= 4 ? pool : terms;
+  const pickN = (arr, k) => arr.slice().sort(() => Math.random() - 0.5).slice(0, k);
+  return pickN(src, Math.min(4, src.length)).map(([t, d]) => {
+    const others = pickN(GLOSSARY.filter(([x]) => x !== t), 2).map(([x]) => x);
+    let dd = d;
+    for (const w of t.split(/[\s()'’]+/).filter((x) => x.length >= 3 && !/^(des|les|aux|et)$/i.test(x))) dd = dd.replace(new RegExp('(?<!\\p{L})' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + 's?(?!\\p{L})', 'giu'), '…');
+    return { t, d: dd, opts: pickN([t, ...others], 3) };
+  });
+}
+let QUIZ = null;
 function tabComprendre() {
-  return `<h2>Comprendre les risques</h2>
-    <p class="lead">Un <b>risque</b> naît de la rencontre d'un <b>aléa</b>, phénomène tel qu'une crue ou un feu, et d'<b>enjeux</b>, personnes et biens, plus ou moins <b>vulnérables</b>. RésiTerre montre les aléas cartographiés, la réglementation qui s'applique et une partie des enjeux (logements, habitants, établissements) ; la vulnérabilité propre à chaque bâtiment relève d'un diagnostic sur place.</p>
-    <h3>Risque par risque</h3>
-    ${RISKS.map((r) => `<details id="risk-${r.id}"><summary>${esc(r.t)}</summary>
-      <p>${esc(r.def)}</p><p><b>Données croisées par RésiTerre.</b> ${esc(r.data)}</p>
-      <h4>Ce que prévoit la réglementation</h4><ul>${r.regl.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-      <h4>Les bons réflexes</h4><ul>${r.reflexes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-      <div class="links">${link(r.pageUrl || RISK_PAGE(r.page), r.pageLbl || 'Géorisques, ' + r.t.toLowerCase())}${r.page2 ? link(RISK_PAGE(r.page2[0]), 'Géorisques, ' + r.page2[1].toLowerCase()) : ''}${r.links.map(lk).join('')}</div></details>`).join('')}
+  const done = S.B.length > 0;
+  const rel = done ? relevantRisks(S.B) : [];
+  const others = RISKS.filter((r) => !rel.includes(r));
+  const terms = done ? zoneTerms() : GLOSSARY;
+  QUIZ = buildQuiz(terms);
+  const maxH = done ? zoneMaxHt() : 0;
+  const h0 = maxH ? Math.min(2, Math.round(maxH * 10) / 10) : 0.5;
+  return `<h2>${done && S.com ? 'Comprendre les risques à ' + esc(S.com.nom) : 'Comprendre les risques'}</h2>
+    <p class="lead">Un <b>risque</b> naît de la rencontre d'un <b>aléa</b> (une crue, un feu) et d'<b>enjeux</b> (des habitants, des maisons) plus ou moins <b>vulnérables</b>. ${done ? 'Cette page s\'adapte à la zone analysée : elle met en avant ses risques et son vocabulaire.' : 'Lancez une analyse : cette page mettra alors en avant les risques et le vocabulaire de votre zone.'}</p>
+    <div class="trio"><div><b>Aléa</b><span>ce qui peut arriver</span></div><div class="x">×</div><div><b>Enjeux</b><span>ce qui peut être touché</span></div><div class="x">=</div><div><b>Risque</b><span>ce qu'on cherche à réduire</span></div></div>
+    ${done ? `<h3>Les risques de votre zone (${rel.length})</h3>${rel.length ? rel.map((r, k) => riskCard(r, k === 0)).join('') : '<p class="muted">Aucun des risques suivis n\'est relevé par les sources dans cette zone.</p>'}` : ''}
+    <h3>Expérimenter</h3>
+    <div class="lab">
+      <div class="tool"><h4>Une crue « centennale », c'est rare ?</h4>
+        <p class="muted">Une crue de période de retour T a une chance sur T de survenir chaque année. Sur plusieurs années, ces chances s'additionnent.</p>
+        <div class="seg chips" id="rp-T" role="group" aria-label="Période de retour">${[10, 30, 100, 300, 1000].map((t) => `<button data-t="${t}" class="${t === 100 ? 'on' : ''}">${t} ans</button>`).join('')}</div>
+        <label class="rng">Sur <b id="rp-Nv">30</b> ans <input type="range" id="rp-N" min="1" max="100" value="30" aria-label="Nombre d'années"></label>
+        <div class="big" id="rp-out" aria-live="polite"></div>
+        <p class="muted">30 ans, c'est la durée d'un emprunt immobilier courant.</p></div>
+      <div class="tool"><h4>Que veut dire une hauteur d'eau ?</h4>
+        <p class="muted">${maxH ? `Dans votre zone, la carte du scénario moyen publie jusqu'à ${fmt(maxH, 1)} m d'eau. ` : ''}Déplacez le curseur.</p>
+        <div class="wat"><svg viewBox="0 0 120 110" aria-hidden="true"><rect x="0" y="100" width="120" height="10" fill="#8a8f8c"/><rect x="62" y="40" width="50" height="60" fill="#e9e3d6" stroke="#6b6b6b"/><polygon points="58,40 87,18 116,40" fill="#b85c38"/><rect x="74" y="66" width="12" height="34" fill="#7a5a3a"/><rect x="92" y="52" width="12" height="12" fill="#bcd6e8" stroke="#6b6b6b"/><rect x="92" y="74" width="12" height="12" fill="#bcd6e8" stroke="#6b6b6b"/><circle cx="25" cy="58" r="5" fill="#33413c"/><rect x="21" y="63" width="8" height="21" rx="3" fill="#33413c"/><rect x="21" y="83" width="3" height="17" fill="#33413c"/><rect x="26" y="83" width="3" height="17" fill="#33413c"/><rect id="wat-r" x="0" y="100" width="120" height="0" fill="#2f78bf" opacity=".55"/></svg>
+        <div><label class="rng"><b id="wat-v">${fmt(h0, 1)} m</b><input type="range" id="wat" min="0" max="2" step="0.05" value="${h0}" aria-label="Hauteur d'eau en mètres"></label><p id="wat-t" aria-live="polite"></p></div></div>
+        <p class="muted">Repères diffusés par les services de prévention ; la silhouette mesure 1,75 m.</p></div>
+      ${QUIZ.length >= 2 ? `<div class="tool"><h4>Testez-vous${done ? ' sur les mots de votre zone' : ''}</h4><div id="quiz">${QUIZ.map((q, k) => `<div class="q${k === 0 ? ' cur' : ''}" data-q="${k}"><p class="muted">Question ${k + 1} sur ${QUIZ.length} : à quel mot correspond cette définition ?</p><p>${esc(q.d)}</p><div class="opts">${q.opts.map((o) => `<button data-a="${esc(o)}">${esc(o)}</button>`).join('')}</div><p class="fb" aria-live="polite"></p></div>`).join('')}</div><p class="muted" id="quiz-score"></p><button class="btn sm" id="quiz-new">Autres questions</button></div>` : ''}
+    </div>
+    <h3>${done ? 'Le vocabulaire de votre zone' : 'Vocabulaire'} (${terms.length})</h3>
+    <p class="muted">Touchez un mot pour afficher sa définition.</p>
+    <div class="cards">${terms.map(([a, b]) => `<button class="card" aria-expanded="false"><b>${esc(a)}</b><span>${esc(b)}</span></button>`).join('')}</div>
+    ${done && terms.length < GLOSSARY.length ? `<details><summary>Tout le vocabulaire (${GLOSSARY.length} termes)</summary>${GLOSSARY.map(([a, b]) => `<div class="term"><b>${esc(a)}</b>${esc(b)}</div>`).join('')}</details>` : ''}
+    <div class="links">${lk('glossaire')}</div>
     <h3>Lire une carte de risque</h3><ul>${READING.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+    <h3>${done ? 'Les autres risques en France' : 'Risque par risque'}</h3>${others.map((r) => riskCard(r, false)).join('')}
     <h3>Se préparer</h3><ul>${PREPARE.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
     <div class="links">${lk('preparer')}${lk('urgence')}${lk('canicule')}${lk('vigilance')}${lk('vigicrues')}</div>
     <h3>Qui fait quoi</h3>${ACTORS.map(([a, b]) => `<div class="term"><b>${esc(a)}</b>${esc(b)}</div>`).join('')}
-    <div class="links">${lk('memento')}${lk('ial')}</div>
-    <h3>Vocabulaire</h3>${GLOSSARY.map(([a, b]) => `<div class="term"><b>${esc(a)}</b>${esc(b)}</div>`).join('')}
-    <div class="links">${lk('glossaire')}</div>`;
+    <div class="links">${lk('memento')}${lk('ial')}</div>`;
+}
+function bindComprendre() {
+  const out = document.getElementById('rp-out'); if (!out) return;
+  let T = 100;
+  const upd = () => { const N = +$('#rp-N').value; $('#rp-Nv').textContent = N; const p = returnProb(T, N); out.innerHTML = `<span>${fmt(p * 100, p < 0.1 ? 1 : 0)} %</span> de chances de la connaître au moins une fois`; };
+  document.querySelectorAll('#rp-T button').forEach((b) => b.addEventListener('click', () => { T = +b.dataset.t; document.querySelectorAll('#rp-T button').forEach((x) => x.classList.toggle('on', x === b)); upd(); }));
+  $('#rp-N').addEventListener('input', upd); upd();
+  const w = $('#wat'), rect = document.getElementById('wat-r');
+  const wu = () => { const h = +w.value; $('#wat-v').textContent = `${fmt(h, 2)} m`; $('#wat-t').textContent = h ? waterText(h) : 'Pas d\'eau.'; const px = h / 1.75 * 46; rect.setAttribute('y', 100 - px); rect.setAttribute('height', px); };
+  w.addEventListener('input', wu); wu();
+  let ok = 0, ans = 0;
+  document.querySelectorAll('#quiz .q').forEach((qd) => {
+    const q = QUIZ[+qd.dataset.q];
+    qd.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      if (qd.dataset.done) return; qd.dataset.done = 1; ans++;
+      const good = b.dataset.a === q.t; if (good) ok++;
+      qd.querySelectorAll('button').forEach((x) => x.classList.add(x.dataset.a === q.t ? 'good' : x === b ? 'bad' : 'dim'));
+      qd.querySelector('.fb').innerHTML = (good ? 'Exact.' : `C'était « ${esc(q.t)} ».`) + (qd.nextElementSibling ? ' <button class="btn sm nextq">Question suivante</button>' : '');
+      const nb = qd.querySelector('.nextq'); if (nb) nb.addEventListener('click', () => { qd.classList.remove('cur'); qd.nextElementSibling.classList.add('cur'); });
+      $('#quiz-score').textContent = `${ok} sur ${ans}${ans === QUIZ.length ? (ok === ans ? ' : sans faute.' : '.') : ''}`;
+    }));
+  });
+  const qn = document.getElementById('quiz-new'); if (qn) qn.addEventListener('click', () => { const y = $('#content').scrollTop; render(); $('#content').scrollTop = y; });
+  document.querySelectorAll('.cards .card').forEach((c) => c.addEventListener('click', () => { const o = c.classList.toggle('open'); c.setAttribute('aria-expanded', o); }));
 }
 function srcCount(k) {
   const d = S.data[k];
@@ -1911,6 +2269,7 @@ function bind() {
   VEC.forEach((v) => { const el = document.getElementById('v-' + v.id); if (el) el.addEventListener('change', () => { if (el.checked) { VL[v.id].addTo(map); reorder(); } else map.removeLayer(VL[v.id]); legend(); }); });
   WMS.forEach((w) => { const el = document.getElementById(w.id); if (el) el.addEventListener('change', () => { if (el.checked) { wmsL[w.id].addTo(map); if (S.dim === '3d') setDim('2d'); } else map.removeLayer(wmsL[w.id]); legend(); }); });
   on('[data-raw]', 'click', (el) => { const r = rawOf(el.dataset.raw); if (r) save(r.name, r.text, r.type); });
+  if (S.tab === 'comprendre') bindComprendre();
   const c1 = document.getElementById('exp-csv'); if (c1) c1.addEventListener('click', exportCSV);
   const c2 = document.getElementById('exp-geo'); if (c2) c2.addEventListener('click', exportGeo);
 }
