@@ -1139,6 +1139,7 @@ const SRC = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
 /* ---------- État ---------- */
 const S = { bb: null, data: {}, err: {}, ms: {}, com: null, comms: [], B: [], E: [], tab: 'synthese', lens: 'count', dim: '2d', focus: null, ctrl: null, when: null, running: false };
 const has = (k) => S.data[k] !== undefined;
+const nearMassif = (b) => b.old != null || b.massif != null;
 
 /* ---------- Croisement bâtiment par bâtiment ----------
    Un bâtiment est rattaché à une zone quand son centre y est situé.
@@ -1184,6 +1185,8 @@ function assess(c) {
   r.arg = hitsOf(c, I.arg).reduce((m, v) => Math.max(m, v), 0);
   const o = nearOf(c, I.old, R_OLD); r.old = o.length ? o[0].d : null; r.oldP = o.length ? o[0].p : null;
   const fo = nearOf(c, I.foret, R_OLD); r.foret = fo.length ? fo[0].d : null; r.foretP = fo.length ? fo[0].p : null;
+  // massif : forêt ou lande, hors objets de nature « Bois », petites surfaces boisées de la BD TOPO
+  const fm = fo.find((x) => !/^bois$/i.test(x.p || '')); r.massif = fm ? fm.d : null;
   r.cav = nearPts(c, I.cav, R_PT); r.mvt = nearPts(c, I.mvt, R_PT);
   r.sis = hitsOf(c, I.sis); r.basol = hitsOf(c, I.basol); r.casias = nearPts(c, I.casias, R_PT);
   r.canal = nearOf(c, I.canal, R_PT);
@@ -1276,7 +1279,7 @@ const LENSES = [
     note: `Bâtiments desservis par une seule voie, c'est-à-dire situés derrière un tronçon dont la coupure les séparerait du reste du réseau, et leur distance aux massifs boisés.`,
     read: 'Lors d\'un feu, une voie unique sert à la fois à l\'évacuation des habitants et à l\'arrivée des secours ; si elle est menacée par les flammes ou encombrée, le quartier n\'a pas d\'autre issue. Ce constat appelle une vérification sur place, car un chemin forestier ou une piste DFCI absente de la BD TOPO peut offrir une seconde issue.',
     classes: () => [{ k: 'u1', lbl: `Voie unique, massif boisé à moins de ${R_OLD} m`, col: '#b8322a' }, { k: 'u2', lbl: 'Voie unique, sans massif proche', col: '#e8a33d' }, { k: 'm', lbl: 'Plusieurs issues', col: GREY }, { k: 0, lbl: `Sans voie à moins de ${R_ATT} m`, col: '#eceeec' }],
-    of: (b) => (b.oneway == null ? 0 : b.oneway ? (b.old != null || b.foret != null ? 'u1' : 'u2') : 'm'),
+    of: (b) => (b.oneway == null ? 0 : b.oneway ? (nearMassif(b) ? 'u1' : 'u2') : 'm'),
     empty: () => (!NET ? 'Réseau routier indisponible pour cette zone.' : '') },
   { id: 'vuln', lbl: 'Vulnérabilités qui se cumulent', src: ['route', 'insee'],
     note: 'Nombre de facteurs de vulnérabilité relevés pour le bâtiment parmi huit, tous tirés des sources : exposition, plain-pied inondable, établissement sensible, accès coupé, voie unique près d\'un massif, part de personnes âgées, d\'enfants ou de ménages pauvres du carreau INSEE.',
@@ -1669,7 +1672,7 @@ const VULN = [
   { id: 'pp', lbl: 'Plain-pied dans une surface inondable', test: (b) => b.et === 1 && (b.triFirst || b.zich.some(isZin)) },
   { id: 'etab', lbl: 'Établissement d\'enseignement, de santé ou camping', test: (b) => b.etab && /enseignement|sante|camping/.test(b.etab._grp || '') },
   { id: 'acc', lbl: 'Accès coupé par l\'eau au scénario de référence', test: (b) => b.acc === 'rue' || b.acc === 'isole' },
-  { id: 'feu1', lbl: 'Une seule voie d\'accès, près d\'un massif boisé', test: (b) => b.oneway && (b.old != null || b.foret != null) },
+  { id: 'feu1', lbl: 'Une seule voie d\'accès, près d\'un massif boisé', test: (b) => b.oneway && nearMassif(b) },
   { id: 'age', lbl: 'Carreau où la part des 80 ans et plus dépasse celle de la zone', test: (b) => b.car && REF.age != null && share(b.car, 'ind_80p', 'ind') > REF.age },
   { id: 'kid', lbl: 'Carreau où la part des moins de 11 ans dépasse celle de la zone', test: (b) => b.car && REF.kid != null && kids(b.car) / (+b.car.ind || 1) > REF.kid },
   { id: 'pauv', lbl: 'Carreau où la part des ménages pauvres dépasse celle de la zone', test: (b) => b.car && REF.pauv != null && share(b.car, 'men_pauv', 'men') > REF.pauv },
@@ -1839,7 +1842,7 @@ function init3d() {
     map3d.addLayer({ id: 'zreg3', type: 'fill', source: 'zreg3', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.25 } });
     map3d.addLayer({ id: 'pm3d', type: 'line', source: 'pm3d', paint: { 'line-color': ['get', 'col'], 'line-width': 2, 'line-dasharray': [3, 2] } });
     map3d.addLayer({ id: 'net3', type: 'line', source: 'net3', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'col'], 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 2, 18, 7] } });
-    map3d.addLayer({ id: 'bati3f', type: 'fill', source: 'bati3', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.55 } });
+    map3d.addLayer({ id: 'bati3f', type: 'fill', source: 'bati3', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.4 } });
     map3d.addLayer({ id: 'bati3', type: 'fill-extrusion', source: 'bati3', paint: { 'fill-extrusion-color': ['get', 'col'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-opacity': 0.92 } });
     map3d.addLayer({ id: 'eau3', type: 'fill-extrusion', source: 'eau3', paint: { 'fill-extrusion-color': ['get', 'col'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-opacity': 0.62 } });
     map3d.addLayer({ id: 'path3', type: 'line', source: 'path3', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1b7f3b', 'line-width': 5, 'line-dasharray': [1.5, 1] } });
@@ -2855,7 +2858,7 @@ function tabMethode() {
       <li>Chaque tronçon est échantillonné tous les ${SAMPLE} m : il est coupé pour un scénario dès qu'un de ces points tombe dans la surface inondée (TRI) ou dans une zone inondée Vigicrues du niveau choisi. Les tronçons au-dessus du sol (ponts) ne sont jamais coupés.</li>
       <li>Un bâtiment est rattaché à la voie la plus proche, dans un rayon de ${R_ATT} m. Il est « coupé » si cette voie est sous l'eau, ou si plus aucun chemin praticable ne relie sa voie à une sortie.</li>
       <li>Le point sec le plus proche est le premier carrefour hors de la surface inondée atteint par le plus court chemin sur le réseau, avant l'arrivée de l'eau.</li>
-      <li>Les secteurs à voie unique sont ceux que sépare du reste du réseau la coupure d'un seul tronçon (pont au sens de la théorie des graphes).</li>
+      <li>Les secteurs à voie unique sont ceux que sépare du reste du réseau la coupure d'un seul tronçon (pont au sens de la théorie des graphes). Ils sont dits proches d'un massif boisé à moins de ${R_OLD} m d'un massif soumis aux obligations de débroussaillement, ou d'une forêt ou d'une lande de la BD TOPO ; les objets de nature « Bois », petites surfaces boisées souvent urbaines, ne sont pas retenus.</li>
       <li>Le niveau mesuré à la station vient de l'API Hub'eau, qui diffuse les données de Vigicrues ; il s'agit de données brutes, susceptibles d'être corrigées.</li></ul>
     <h3>Vulnérabilités qui se cumulent</h3><ul>
       <li>Huit facteurs, tous tirés des sources : au moins un aléa cartographié, plain-pied dans une surface inondable, établissement d'enseignement, de santé ou camping, accès coupé au scénario de référence (scénario moyen des TRI, à défaut premier niveau Vigicrues qui atteint un bâtiment), voie unique près d'un massif boisé, et trois parts de population du carreau INSEE supérieures à celles de l'ensemble de la zone analysée.</li>
@@ -2960,7 +2963,7 @@ function tabAnticiper() {
       <div class="kpi"><b>${fmt(touched.length)}</b><span>établissements sensibles touchés ou coupés</span></div></div>
     <p><button class="btn sm" data-lensgo="acces">Colorer la carte selon l'accès</button> <button class="btn sm" data-focus="coupes">Montrer les bâtiments coupés</button> <button class="btn sm" data-goto3d="1">Voir l'eau en 3D</button></p>
     <div class="note"><b>Hors d'eau mais coupés</b> : ${plural(r.rue.length, 'bâtiment')} dont la voie d'accès passe sous l'eau, et ${plural(r.isole.length, 'bâtiment')} dans des quartiers dont toutes les routes vers l'extérieur sont noyées. Aucune carte d'aléa ne les signale, alors qu'ils peuvent rester plusieurs heures ou plusieurs jours sans accès.</div>
-    ${r.names.length ? `<h3>Voies coupées</h3><ul class="cols2">${r.names.slice(0, 12).map(([n, l]) => `<li>${esc(n)} <span class="muted">${mBest(l)}</span></li>`).join('')}</ul>${r.names.length > 12 ? `<p class="muted">et ${plural(r.names.length - 12, 'autre voie')} nommée${r.names.length - 12 > 1 ? 's' : ''}.</p>` : ''}` : ''}
+    ${r.names.length ? `<h3>Voies coupées</h3><ul class="cols2">${r.names.slice(0, 12).map(([n, l]) => `<li>${esc(n)} <span class="muted">${mBest(l)}</span></li>`).join('')}</ul>${r.names.length > 12 ? `<p class="muted">et ${r.names.length - 12 > 1 ? `${fmt(r.names.length - 12)} autres voies nommées` : 'une autre voie nommée'}.</p>` : ''}` : ''}
     <h3>Établissements sensibles</h3>
     ${touched.length ? `<div class="tblwrap"><table><tr><th>Établissement</th><th>Situation</th></tr>${touched.map((x) => `<tr class="go" data-ll="${x.x.c[1]},${x.x.c[0]}"><td>${esc(x.x.nom)}<br><span class="muted">${esc(x.x.nature)}</span></td><td><span class="pill st-${x.s}">${esc(stLbl(x.s))}</span></td></tr>`).join('')}</table></div>` : '<p class="muted">Aucun établissement d\'enseignement, de santé, de secours ou camping n\'est atteint ni coupé dans ce scénario.</p>'}
     ${det.length ? `<p class="muted">Restent accessibles au prix d'un détour par la route depuis l'extérieur de la zone : ${det.slice(0, 6).map((x) => `${esc(x.x.nom)} (+${mBest(x.det)})`).join(', ')}.</p>` : ''}
@@ -2975,7 +2978,7 @@ function tabAnticiper() {
 }
 function fireBlock() {
   if (!NET) return '';
-  const u = S.B.filter((b) => b.oneway), u1 = u.filter((b) => b.old != null || b.foret != null);
+  const u = S.B.filter((b) => b.oneway), u1 = u.filter(nearMassif);
   if (!u.length) return `<h3>Feu de forêt : voies de sortie</h3><p class="muted">Tous les bâtiments desservis de la zone disposent d'au moins deux itinéraires vers l'extérieur.</p>`;
   return `<h3>Feu de forêt : voies de sortie</h3>
     <p><b>${plural(u.length, 'bâtiment')}</b> (${plural(u.reduce((s, b) => s + b.log, 0), 'logement')}) ${u.length > 1 ? 'sont desservis' : 'est desservi'} par une seule voie : une coupure de ce tronçon les séparerait du reste du réseau. ${u1.length ? `<b>${fmt(u1.length)}</b> d'entre eux se trouvent à moins de ${R_OLD} m d'un massif boisé.` : 'Aucun n\'est à proximité d\'un massif boisé.'}</p>
@@ -3081,7 +3084,7 @@ function accessSection(b) {
   // scénario le plus fréquent qui coupe le bâtiment
   const first = (NET.scen || []).find((x) => { const s = impact(x).st.get(b.i); return s === 'eau' || s === 'rue' || s === 'isole'; });
   if (first && (!sc || first.id !== sc.id)) h += `<li>Premier scénario qui l'atteint ou le coupe : ${esc(first.lbl)} (${esc(stLbl(impact(first).st.get(b.i)).toLowerCase())})</li>`;
-  if (b.oneway != null) h += b.oneway ? `<li>Desservi par <b>une seule voie</b>${b.old != null || b.foret != null ? ', à moins de ' + R_OLD + ' m d\'un massif boisé' : ''}${srcTag('route', 'BD TOPO')}</li>` : '<li class="no">Au moins deux itinéraires vers l\'extérieur</li>';
+  if (b.oneway != null) h += b.oneway ? `<li>Desservi par <b>une seule voie</b>${nearMassif(b) ? ', à moins de ' + R_OLD + ' m d\'un massif boisé' : ''}${srcTag('route', 'BD TOPO')}</li>` : '<li class="no">Au moins deux itinéraires vers l\'extérieur</li>';
   if ((b.v || []).length) h += `<li>Facteurs de vulnérabilité relevés : ${b.v.map((id) => esc(VULN.find((v) => v.id === id).lbl.toLowerCase())).join(' ; ')}</li>`;
   return ['Accès, mise à l\'abri et vulnérabilité', h, null];
 }
@@ -3280,7 +3283,7 @@ async function crisisReport() {
     });
     const first = rows.find((x) => x.s !== 'ok' && x.s !== 'na');
     const dry = first ? bs.map((b) => dryRoute(first.sc, b)).filter(Boolean).sort((x, y) => x.d - y.d)[0] : null;
-    const one = bs.some((b) => b.oneway), forest = bs.some((b) => b.old != null || b.foret != null);
+    const one = bs.some((b) => b.oneway), forest = bs.some(nearMassif);
     const vf = [...new Set(bs.flatMap((b) => b.v || []))];
     const docs = new Map(); for (const b of bs) for (const p of b.pm1.concat(b.pm3)) { const u = pprDoc(p); if (u) docs.set(u, pprTitle(p)); }
     const check = [];
