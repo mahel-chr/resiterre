@@ -147,9 +147,19 @@ dl.kv dd { margin: 0; }
 .seg button:disabled { color: var(--ink-3); cursor: wait; }
 .lens { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); font-size: 12px; max-width: 100%; }
 .lens select { border: 0; background: var(--line-2); border-radius: 6px; padding: 4px 6px; font-size: 12.5px; font-weight: 600; max-width: 260px; }
-.twin { position: absolute; top: 56px; right: 12px; z-index: 700; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.twin .seg span { font-size: 11px; color: var(--ink-3); padding: 6px 4px 6px 9px; white-space: nowrap; }
-@media (max-width: 900px) { .twin { top: auto; bottom: 12px; right: 52px; } .twin .seg span { display: none; } .twin .seg:nth-child(n+3) { display: none; } }
+.mapopts { position: absolute; top: 56px; right: 12px; z-index: 720; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: 0 6px 20px rgba(0,0,0,.14); display: grid; gap: 8px; min-width: 260px; }
+.optrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--ink-3); }
+.optrow .seg { box-shadow: none; }
+#twin { display: grid; gap: 8px; } #twin[hidden] { display: none; }
+.brand h1 a { color: inherit; text-decoration: none; }
+.toolbar { display: flex; gap: 6px; padding: 8px 18px 0; }
+.toolbar button { flex: 1; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 6px; cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.toolbar button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.toolcards { display: grid; gap: 10px; margin: 12px 0 16px; }
+.toolcard { text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--panel); cursor: pointer; font: inherit; color: var(--ink); display: grid; gap: 4px; }
+.toolcard:hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.toolcard b { font-size: 15px; } .toolcard span { font-size: 13px; color: var(--ink-2); } .toolcard small { font-size: 12px; color: var(--accent); }
+.toolcard .ask { display: block; font-size: 12.5px; color: var(--ink-3); font-style: italic; }
 .right { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .legend { position: absolute; left: 12px; bottom: 22px; z-index: 650; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.08); max-width: 290px; max-height: calc(100% - 90px); overflow-y: auto; }
 .legend h4 { margin: 0 0 5px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
@@ -253,7 +263,7 @@ ol.reflex { padding-left: 20px; } ol.reflex li { margin: 4px 0; }
 <div id="app">
   <aside id="side">
     <header class="top">
-      <div class="brand"><h1>RésiTerre</h1><span>Préparer un territoire aux risques avec les données officielles · par <a href="#" id="about-link">Mahel Chéour</a></span><button class="btn sm learnbtn" id="learnbtn">Apprendre</button></div>
+      <div class="brand"><h1><a href="#" id="home" title="Revenir à l'accueil">RésiTerre</a></h1><span>Les risques d'un quartier, lus dans les données officielles · par <a href="#" id="about-link">Mahel Chéour</a></span></div>
       <div class="searchrow">
         <input id="q" type="search" placeholder="Commune ou adresse, par exemple Arles" autocomplete="off" aria-label="Rechercher une commune ou une adresse">
         <ul id="suggest" hidden role="listbox"></ul>
@@ -266,15 +276,10 @@ ol.reflex { padding-left: 20px; } ol.reflex li { margin: 4px 0; }
       <div class="progress" id="progress" hidden><i></i></div>
       <div class="status" id="status" aria-live="polite"></div>
     </header>
-    <nav class="tabs" role="tablist">
-      <button data-tab="synthese" class="on">Synthèse</button>
-      <button data-tab="anticiper">Anticiper</button>
-      <button data-tab="priorites">Priorités</button>
-      <button data-tab="bati">Bâtiments</button>
-      <button data-tab="commune">Commune</button>
-      <button data-tab="couches">Couches</button>
-      <button data-tab="sources">Sources</button>
+    <nav class="toolbar" id="toolbar" hidden aria-label="Outils">
+      <button data-tool="diag">Diagnostic</button><button data-tool="inond">Inondation</button><button data-tool="feu">Feu de forêt</button>
     </nav>
+    <nav class="tabs" id="tabs" role="tablist" hidden></nav>
     <div id="content" class="prose"></div>
     <footer class="credit">Conçu et développé par <b>Mahel Chéour</b>, géographe des risques et SIG · <span class="mail">mahelchr@gmail.com</span></footer>
   </aside>
@@ -291,15 +296,18 @@ ol.reflex { padding-left: 20px; } ol.reflex li { margin: 4px 0; }
       </label>
       <div class="right">
         <div class="seg" id="dims"><button data-d="2d" class="on">2D</button><button data-d="3d">3D</button></div>
-        <div class="seg" id="basemaps"><button data-b="plan" class="on">Plan</button><button data-b="ortho">Photo</button></div>
-        <div class="seg"><button id="mapdl" title="Image PNG de la vue affichée, avec sa légende, son échelle et ses sources">Télécharger la carte</button></div>
+        <div class="seg"><button id="optsbtn" aria-expanded="false" aria-controls="mapopts" title="Fond de carte, réglages de la 3D, téléchargement">+ Réglages</button></div>
       </div>
     </div>
-    <div class="twin" id="twin" hidden aria-label="Réglages du jumeau numérique">
-      <div class="seg"><span>Relief</span><button data-t="relief" data-v="plat">Plat</button><button data-t="relief" data-v="sol">Sol</button><button data-t="relief" data-v="surface" title="Modèle numérique de surface : sol, bâtiments et arbres mesurés">Sol, bâti, arbres</button></div>
-      <div class="seg"><span>Bâtiments</span><button data-t="bati" data-v="couleur">Colorés</button><button data-t="bati" data-v="non">Masqués</button></div>
-      <div class="seg"><span>Eau du scénario</span><button data-t="eau" data-v="true">Visible</button><button data-t="eau" data-v="false">Masquée</button></div>
-      <div class="seg"><span>Relief exagéré</span><button data-t="exag" data-v="1">×1</button><button data-t="exag" data-v="2">×2</button><button data-t="exag" data-v="3">×3</button></div>
+    <div class="mapopts" id="mapopts" hidden>
+      <div class="optrow"><span>Fond</span><div class="seg" id="basemaps"><button data-b="plan" class="on">Plan</button><button data-b="ortho">Photo aérienne</button></div></div>
+      <div id="twin" hidden>
+        <div class="optrow"><span>Relief</span><div class="seg"><button data-t="relief" data-v="plat">Plat</button><button data-t="relief" data-v="sol">Relief réel</button></div></div>
+        <div class="optrow"><span>Relief exagéré</span><div class="seg"><button data-t="exag" data-v="1">×1</button><button data-t="exag" data-v="2">×2</button><button data-t="exag" data-v="3">×3</button></div></div>
+        <div class="optrow"><span>Bâtiments</span><div class="seg"><button data-t="bati" data-v="couleur">Colorés</button><button data-t="bati" data-v="non">Masqués</button></div></div>
+        <div class="optrow"><span>Eau du scénario</span><div class="seg"><button data-t="eau" data-v="true">Visible</button><button data-t="eau" data-v="false">Masquée</button></div></div>
+      </div>
+      <button class="btn sm" id="mapdl" title="Image PNG de la vue affichée, avec sa légende, son échelle et ses sources">Télécharger la carte avec sa légende</button>
     </div>
     <div class="focusbar" id="focusbar" hidden><span id="focust"></span><button id="focusx">Tout afficher</button></div>
     <div class="legend" id="legend"></div>
@@ -1270,7 +1278,7 @@ const LENSES = [
     classes: () => [0, 1, 2, 3, 4, 5].map((k, j) => ({ k, lbl: k === 0 ? 'Aucune information' : k === 5 ? 'Cinq ou plus' : k === 1 ? 'Une information' : `${['', '', 'Deux', 'Trois', 'Quatre'][k]} informations`, col: ['#e3e7e5', '#c6d4ec', '#93aedb', '#5f80c4', '#35539f', '#1d2f6b'][j] })),
     of: (b) => Math.min(5, b.n) },
   { id: 'acces', lbl: 'Accès en cas d\'inondation (scénario choisi)', src: ['route'],
-    note: 'Situation de chaque bâtiment pour le scénario choisi dans l\'onglet Anticiper : dans l\'eau, hors d\'eau mais desservi par une voie inondée, ou hors d\'eau dans un quartier dont toutes les routes vers l\'extérieur passent sous l\'eau.',
+    note: 'Situation de chaque bâtiment pour le scénario choisi dans l\'outil Inondation : dans l\'eau, hors d\'eau mais desservi par une voie inondée, ou hors d\'eau dans un quartier dont toutes les routes vers l\'extérieur passent sous l\'eau.',
     read: 'Une crue ne s\'arrête pas aux bâtiments qu\'elle touche : en coupant les routes, elle isole des quartiers restés au sec, retarde les secours et complique l\'évacuation. Ces bâtiments n\'apparaissent sur aucune carte d\'aléa. Ils comptent pourtant parmi ceux qu\'une commune doit prévenir et, parfois, évacuer en premier.',
     classes: () => ['eau', 'isole', 'rue', 'ok', 'na'].map((k) => ({ k, lbl: ST_LBL[k], col: ST_COL[k] })),
     of: (b) => { const r = impact(S.scen); return r ? r.st.get(b.i) : 'na'; },
@@ -1801,13 +1809,12 @@ function drawNet() { VL.net.clearLayers().addData(netFeatures()); if (map.hasLay
 /* ---------- Jumeau numérique 3D (MapLibre) ----------
    Le relief vient de l'altimétrie de l'IGN, servie en tuiles de valeurs
    brutes (format BIL, mètres) puis converties dans le navigateur au codage
-   « terrarium » que lit MapLibre. Deux modèles : le modèle numérique de
-   terrain (RGE ALTI, le sol nu) et le modèle numérique de surface (sol,
-   bâtiments et arbres). La photographie aérienne ou le plan s'y posent.
+   « terrarium » que lit MapLibre (RGE ALTI, le sol nu). La photographie
+   aérienne ou le plan s'y posent.
    L'eau d'un scénario est dessinée à la hauteur publiée par sa source. */
 let map3d = null;
 const TWIN = { relief: 'sol', bati: 'couleur', eau: true, exag: 1 };
-const DEM_LAYER = { mnt: 'ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES', mns: 'ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES.MNS' };
+const DEM_LAYER = { mnt: 'ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES' };
 maplibregl.addProtocol('ignalt', async (params, ac) => {
   const m = params.url.match(/^ignalt:\/\/(\w+)\/(\d+)\/(\d+)\/(\d+)/);
   const z = +m[2], x = +m[3], y = +m[4], R = 6378137, E = 2 * Math.PI * R / 2 ** z, x0 = -Math.PI * R + x * E, y1 = Math.PI * R - y * E;
@@ -1835,37 +1842,31 @@ function init3d() {
   map3d.once('style.load', () => {
     const empty = { type: 'FeatureCollection', features: [] };
     const dem = (k, mz) => ({ type: 'raster-dem', tiles: [`ignalt://${k}/{z}/{x}/{y}`], tileSize: 256, encoding: 'terrarium', maxzoom: mz, attribution: 'Altimétrie IGN' });
-    map3d.addSource('dem', dem('mnt', 15)); map3d.addSource('demh', dem('mnt', 15)); map3d.addSource('dems', dem('mns', 17));
+    map3d.addSource('dem', dem('mnt', 15)); map3d.addSource('demh', dem('mnt', 15));
     map3d.addLayer({ id: 'hill', type: 'hillshade', source: 'demh', paint: { 'hillshade-exaggeration': 0.35, 'hillshade-shadow-color': '#3d4a44' } });
     ['tri3', 'zreg3', 'pm3d', 'bati3', 'eau3', 'net3', 'path3'].forEach((s) => map3d.addSource(s, { type: 'geojson', data: empty }));
     map3d.addLayer({ id: 'tri3', type: 'fill', source: 'tri3', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.25 } });
     map3d.addLayer({ id: 'zreg3', type: 'fill', source: 'zreg3', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.25 } });
     map3d.addLayer({ id: 'pm3d', type: 'line', source: 'pm3d', paint: { 'line-color': ['get', 'col'], 'line-width': 2, 'line-dasharray': [3, 2] } });
     map3d.addLayer({ id: 'net3', type: 'line', source: 'net3', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'col'], 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 2, 18, 7] } });
-    map3d.addLayer({ id: 'bati3f', type: 'fill', source: 'bati3', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.4 } });
     map3d.addLayer({ id: 'bati3', type: 'fill-extrusion', source: 'bati3', paint: { 'fill-extrusion-color': ['get', 'col'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-opacity': 0.92 } });
     map3d.addLayer({ id: 'eau3', type: 'fill-extrusion', source: 'eau3', paint: { 'fill-extrusion-color': ['get', 'col'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-opacity': 0.62 } });
     map3d.addLayer({ id: 'path3', type: 'line', source: 'path3', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1b7f3b', 'line-width': 5, 'line-dasharray': [1.5, 1] } });
     try { map3d.setSky({ 'sky-color': '#a9c7e4', 'horizon-color': '#e6eef2', 'fog-color': '#e9eeec', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.85 }); } catch (e) { /* ciel facultatif */ }
     const pick = (e) => openFiche(S.B[e.features[0].properties.i], e.lngLat);
-    for (const id of ['bati3', 'bati3f']) {
-      map3d.on('click', id, pick);
-      map3d.on('mouseenter', id, () => { map3d.getCanvas().style.cursor = 'pointer'; });
-      map3d.on('mouseleave', id, () => { map3d.getCanvas().style.cursor = ''; });
-    }
+    map3d.on('click', 'bati3', pick);
+    map3d.on('mouseenter', 'bati3', () => { map3d.getCanvas().style.cursor = 'pointer'; });
+    map3d.on('mouseleave', 'bati3', () => { map3d.getCanvas().style.cursor = ''; });
     applyTwin(); fill3d();
   });
 }
 function applyTwin() {
   document.querySelectorAll('#twin [data-t]').forEach((x) => x.classList.toggle('on', TWIN[x.dataset.t] === x.dataset.v || String(TWIN[x.dataset.t]) === x.dataset.v));
   if (!map3d || !map3d.getLayer('bati3')) return;
-  const src = TWIN.relief === 'surface' ? 'dems' : TWIN.relief === 'sol' ? 'dem' : null;
+  const src = TWIN.relief === 'sol' ? 'dem' : null;
   try { map3d.setTerrain(src ? { source: src, exaggeration: TWIN.exag } : null); } catch (e) { /* relief indisponible */ }
   map3d.setLayoutProperty('hill', 'visibility', TWIN.relief === 'sol' ? 'visible' : 'none');
-  // le modèle de surface contient déjà les volumes bâtis : les bâtiments y sont colorés à plat, posés sur les toits
-  const flat = TWIN.relief === 'surface';
-  map3d.setLayoutProperty('bati3', 'visibility', TWIN.bati === 'couleur' && !flat ? 'visible' : 'none');
-  map3d.setLayoutProperty('bati3f', 'visibility', TWIN.bati === 'couleur' && flat ? 'visible' : 'none');
+  map3d.setLayoutProperty('bati3', 'visibility', TWIN.bati === 'couleur' ? 'visible' : 'none');
   map3d.setLayoutProperty('eau3', 'visibility', TWIN.eau ? 'visible' : 'none');
   legend();
 }
@@ -1942,17 +1943,16 @@ document.querySelectorAll('#basemaps button').forEach((b) => b.addEventListener(
   map.removeLayer(base2d); base2d = L.tileLayer(BASES[baseKey], { maxZoom: 19, crossOrigin: true, attribution: '© IGN' }).addTo(map); base2d.bringToBack();
   if (map3d && map3d.getSource('base')) { map3d.removeLayer('base'); map3d.removeSource('base'); map3d.addSource('base', { type: 'raster', tiles: [BASES[baseKey]], tileSize: 256 }); map3d.addLayer({ id: 'base', type: 'raster', source: 'base' }, map3d.getLayer('hill') ? 'hill' : undefined); }
 }));
-function setBase(k) { const b = document.querySelector(`#basemaps button[data-b="${k}"]`); if (b && baseKey !== k) b.click(); }
+$('#optsbtn').addEventListener('click', () => { const o = $('#mapopts'); o.hidden = !o.hidden; $('#optsbtn').setAttribute('aria-expanded', !o.hidden); $('#optsbtn').textContent = o.hidden ? '+ Réglages' : '− Réglages'; });
 document.querySelectorAll('#twin [data-t]').forEach((b) => b.addEventListener('click', () => {
   const t = b.dataset.t; TWIN[t] = t === 'eau' ? b.dataset.v === 'true' : t === 'exag' ? +b.dataset.v : b.dataset.v;
-  if (t === 'relief' && b.dataset.v === 'surface') setBase('ortho');
   applyTwin();
 }));
 $('#lens').innerHTML = LENSES.map((l) => `<option value="${l.id}">${esc(l.lbl)}</option>`).join('');
 $('#lens').addEventListener('change', (e) => { S.lens = e.target.value; restyle(); });
 
 /* ---------- Légende : lecture des bâtiments + couches visibles ---------- */
-let legendSmall = false, popupOpen = false, legendRead = false;
+let legendSmall = false, popupOpen = false, legendRead = false, legendLayers = false;
 map.on('popupopen', () => { popupOpen = true; $('#legend').classList.add('small'); });
 map.on('popupclose', () => { popupOpen = false; $('#legend').classList.toggle('small', legendSmall); });
 function legendHTML() {
@@ -1971,12 +1971,12 @@ function legendHTML() {
   if (l.read) h += `<details class="howto"${legendRead ? ' open' : ''}><summary>Comment lire cette carte</summary><p>${esc(l.read)}</p><p class="muted">Sources : ${[...new Set(l.src)].map((k) => `<a href="#" data-srcref="${k}">${esc(SRC[k].prod)}</a>`).join(', ')}</p></details>`;
   if (S.dim === '2d') {
     const vis = VEC.filter((v) => v.leg && map.hasLayer(VL[v.id]) && v.id !== 'bati' && VL[v.id].getLayers && VL[v.id].getLayers().length);
-    if (vis.length) h += '<div class="sep"></div><h4>Couches affichées</h4>' + vis.map((v) => `<div style="margin-bottom:4px"><b style="font-weight:600">${esc(v.lbl)}</b>${v.leg()}</div>`).join('');
+    if (vis.length) h += `<details class="howto"${legendLayers ? ' open' : ''} id="leglayers"><summary>Autres couches affichées (${vis.length})</summary>` + vis.map((v) => `<div style="margin-bottom:4px"><b style="font-weight:600">${esc(v.lbl)}</b>${v.leg()}</div>`).join('') + '</details>';
     const ws = WMS.filter((w) => map.hasLayer(wmsL[w.id]));
     if (ws.length) h += '<div class="sep"></div><h4>Cartes officielles de Géorisques</h4>' + ws.map((w) => `<div><b style="font-weight:600">${esc(w.lbl)}</b><img src="${wmsLegend(w)}" alt="Légende officielle : ${esc(w.lbl)}" loading="lazy"></div>`).join('');
   } else {
     h += '<div class="sep"></div><h4>Jumeau numérique</h4>';
-    h += `<p>${TWIN.relief === 'surface' ? 'Relief du modèle numérique de surface de l\'IGN : sol, bâtiments et arbres tels que mesurés, sous la photographie aérienne. Les bâtiments y sont colorés à plat, sur leur toit.' : TWIN.relief === 'sol' ? 'Relief du sol nu (RGE ALTI de l\'IGN), ombré. Les bâtiments sont élevés à leur hauteur dans la BD TOPO.' : 'Sol plat. Les bâtiments sont élevés à leur hauteur dans la BD TOPO.'}</p>`;
+    h += `<p>${TWIN.relief === 'sol' ? 'Relief du sol (RGE ALTI de l\'IGN), ombré. Les bâtiments sont élevés à leur hauteur dans la BD TOPO.' : 'Sol plat. Les bâtiments sont élevés à leur hauteur dans la BD TOPO.'}</p>`;
     if (S.scen) h += `<p><b>Eau : ${esc(S.scen.lbl)}.</b> Épaisseur égale à la borne basse de la classe de hauteur publiée ; une surface sans hauteur publiée est tracée en nappe mince.</p>` + [[0.12, 'Hauteur non publiée'], [0, 'Moins de 0,5 m'], [0.5, 'De 0,5 à 1 m'], [1, 'De 1 à 2 m'], [2, 'Plus de 2 m']].map(([v, t]) => `<div class="row"><i style="background:${v === 0.12 ? '#9cc3e6' : depthCol(v)}"></i>${t}</div>`).join('') + '<div class="row"><i class="line" style="color:#d7263d;border-top-style:solid;border-top-width:4px"></i>Chaussée sous l\'eau</div>';
     else h += '<p>Aucun scénario d\'inondation choisi ; les surfaces des TRI et les zonages réglementaires gardent les couleurs de la 2D.</p>';
   }
@@ -1987,12 +1987,13 @@ function legend() {
   el.innerHTML = `<button class="min" id="legmin" aria-label="Réduire ou agrandir la légende">${legendSmall ? 'Afficher' : 'Réduire'}</button>` + legendHTML();
   el.classList.toggle('small', legendSmall || popupOpen);
   $('#legmin').onclick = () => { legendSmall = !legendSmall; legend(); };
-  const d = el.querySelector('details.howto'); if (d) d.addEventListener('toggle', () => { legendRead = d.open; });
+  const d = el.querySelector('details.howto:not(#leglayers)'); if (d) d.addEventListener('toggle', () => { legendRead = d.open; });
+  const dl = el.querySelector('#leglayers'); if (dl) dl.addEventListener('toggle', () => { legendLayers = dl.open; });
 }
 
 /* ---------- Fiche bâtiment ----------
    Chaque ligne cite sa source ; un clic sur la source ouvre sa fiche de
-   lecture dans l'onglet Sources. */
+   lecture dans l'onglet Données. */
 const dTxt = (d) => (d < 1 ? 'au contact du bâtiment' : `à ${fmt(d)} m`);
 const srcTag = (k, t) => ` <small>(<a href="#" class="srcref" data-srcref="${k}">${esc(t || SRC[k].prod)}</a>)</small>`;
 function absent(k, txt) { return S.err[k] ? `<li class="no">Source sans réponse pendant l'analyse${srcTag(k)}</li>` : has(k) ? `<li class="no">${txt}</li>` : ''; }
@@ -2323,7 +2324,7 @@ async function downloadMap() {
     const ws = d3 ? [] : WMS.filter((w) => map.hasLayer(wmsL[w.id]));
     const foot = [
       `Fond de carte : IGN, ${baseKey === 'ortho' ? 'photographies aériennes (BD ORTHO)' : 'Plan IGN'}.${srcK.length ? ' Bâtiments colorés selon : ' + srcK.map((x) => `${SRC[x].org}, ${SRC[x].prod}`).join(' ; ') + '.' : ''}${ws.length ? ' Cartes officielles de Géorisques : ' + ws.map((w) => w.lbl).join(' ; ') + '.' : ''}`,
-      `Données publiques interrogées le ${when.toLocaleDateString('fr-FR')}. Carte d'information : elle ne remplace ni l'état des risques réglementaire ni le règlement des plans de prévention. Liens vers chaque source dans le rapport et l'onglet Sources.`,
+      `Données publiques interrogées le ${when.toLocaleDateString('fr-FR')}. Carte d'information : elle ne remplace ni l'état des risques réglementaire ni le règlement des plans de prévention. Liens vers chaque source dans le rapport et l'onglet Données.`,
       `RésiTerre, conçu et développé par Mahel Chéour (mahelchr@gmail.com) · ${location.origin + location.pathname}`,
     ];
     const FW = MW + LW + PAD * 3;
@@ -2431,7 +2432,7 @@ async function analyse() {
     const few = left.length && left.length <= 3 && done >= total - 3;
     status(`Sources interrogées : ${done} sur ${total}${few ? `. En attente : ${left.join(', ')}` : ''}…`);
     skipBtn.hidden = !few;
-    if (S.tab === 'synthese') render();
+    if (S.tool) render();
   };
   progress(0, total); status('Recherche de la commune…'); render();
   try {
@@ -2483,23 +2484,74 @@ async function analyse() {
   }
   if (S.ctrl !== ctrl) return;
   S.running = false; S.ctrl = null; stopBtn.hidden = true; skipBtn.hidden = true; progress(1, 1);
-  lensClasses(); draw(); render();
+  lensClasses(); draw();
+  if (!S.tool) setTool('diag'); else render();
   $('#report').disabled = false;
   const ko = SOURCES.filter((s) => S.err[s.id]).length;
-  status(`${plural(S.B.length, 'bâtiment')} croisé${S.B.length > 1 ? 's' : ''} avec ${SOURCES.length - ko} sources sur ${SOURCES.length}${ko ? ` (${ko} sans réponse, détail dans l'onglet Sources)` : ''}. Un clic sur un bâtiment ouvre sa fiche.`);
+  status(`${plural(S.B.length, 'bâtiment')} croisé${S.B.length > 1 ? 's' : ''} avec ${SOURCES.length - ko} sources sur ${SOURCES.length}${ko ? ` (${ko} sans réponse, détail dans l'onglet Données)` : ''}. Un clic sur un bâtiment ouvre sa fiche.`);
   try { history.replaceState(null, '', `#${map.getZoom()}/${map.getCenter().lat.toFixed(5)}/${map.getCenter().lng.toFixed(5)}`); } catch (e) { /* adresse facultative */ }
 }
 $('#run').addEventListener('click', analyse);
 
-/* ---------- Onglets ---------- */
-document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
-  S.tab = b.dataset.tab; render(); $('#content').scrollTop = 0;
-}));
+/* ---------- Trois outils sur une même analyse ----------
+   L'analyse interroge toutes les sources une fois ; chaque outil n'en
+   montre que la part utile à sa question, avec sa propre page « Comprendre »
+   nourrie par les résultats de la zone. */
+const TOOLS = {
+  diag: { lbl: 'Diagnostic', q: 'Que disent toutes les sources officielles sur ce quartier ?',
+    d: 'Croise une vingtaine de sources (plans de prévention, inondation, argiles, cavités, pollution, industrie, urbanisme, population) bâtiment par bâtiment, et repère où les vulnérabilités se cumulent.',
+    tabs: [['synthese', 'Synthèse'], ['priorites', 'Priorités'], ['bati', 'Bâtiments'], ['commune', 'Commune'], ['comprendre', 'Comprendre'], ['plus', 'Données']],
+    lens: 'count', lenses: null, ex: 3 },
+  inond: { lbl: 'Inondation', q: 'Quand la rivière monte, qui est touché, et qui se retrouve coupé ?',
+    d: 'Fait monter l\'eau scénario par scénario, montre les routes qui passent sous l\'eau, les quartiers restés au sec mais isolés, le point sec le plus proche, et prépare une fiche par établissement sensible.',
+    tabs: [['anticiper', 'Scénarios'], ['etab', 'Établissements'], ['comp-inond', 'Comprendre']],
+    lens: 'acces', lenses: ['acces', 'tri', 'triht', 'zich', 'reg', 'niv', 'alt', 'eau'], ex: 1 },
+  feu: { lbl: 'Feu de forêt', q: 'Quels quartiers touchent la forêt, et par où en sortir ?',
+    d: 'Repère les bâtiments proches des massifs, les obligations de débroussaillement, et les secteurs desservis par une seule voie, à la fois sortie des habitants et entrée des secours.',
+    tabs: [['feu', 'Voies et massifs'], ['comp-feu', 'Comprendre']],
+    lens: 'issue', lenses: ['issue', 'feu', 'vuln', 'pop'], ex: 5 },
+};
+const TOOL_LAYERS = {
+  diag: null,
+  inond: ['bati', 'equip', 'pm', 'zreg', 'tri', 'zich', 'ouv', 'net', 'path', 'zone'],
+  feu: ['bati', 'equip', 'old', 'foret', 'net', 'zone'],
+};
+function setTool(t, tab) {
+  S.tool = t;
+  $('#toolbar').hidden = !t; $('#tabs').hidden = !t;
+  document.querySelectorAll('#toolbar button').forEach((x) => x.classList.toggle('on', x.dataset.tool === t));
+  if (t) {
+    const T = TOOLS[t];
+    S.tab = tab && T.tabs.some(([k]) => k === tab) ? tab : T.tabs[0][0];
+    $('#tabs').innerHTML = T.tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === S.tab ? 'on' : ''}">${l}</button>`).join('');
+    $('#tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      $('#tabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+      S.tab = b.dataset.tab; render(); $('#content').scrollTop = 0;
+    }));
+    const ls = T.lenses ? LENSES.filter((l) => T.lenses.includes(l.id)) : LENSES;
+    $('#lens').innerHTML = ls.map((l) => `<option value="${l.id}">${esc(l.lbl)}</option>`).join('');
+    if (!ls.some((l) => l.id === S.lens)) S.lens = T.lens;
+    // chaque outil n'affiche que les couches utiles à sa question
+    const on = TOOL_LAYERS[t];
+    VEC.forEach((v) => { const want = on ? on.includes(v.id) : v.on; if (want && !map.hasLayer(VL[v.id])) VL[v.id].addTo(map); else if (!want && map.hasLayer(VL[v.id])) map.removeLayer(VL[v.id]); });
+    reorder();
+    $('#lens').value = S.lens;
+    restyle();
+  }
+  render(); $('#content').scrollTop = 0;
+}
+document.querySelectorAll('#toolbar button').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$('#home').addEventListener('click', (e) => { e.preventDefault(); closeLearn(); setTool(null); });
 function render() {
-  const T = { synthese: tabSynthese, anticiper: tabAnticiper, priorites: tabPriorites, bati: tabBati, commune: tabCommune, couches: tabCouches, sources: tabSources };
-  $('#content').innerHTML = (T[S.tab] || tabSynthese)();
+  const T = { synthese: tabSynthese, anticiper: tabAnticiper, etab: tabEtab, priorites: tabPriorites, bati: tabBati, commune: tabCommune, plus: tabPlus, feu: tabFeu,
+    comprendre: tabComprendre, 'comp-inond': () => tabLearnRisk('inond'), 'comp-feu': () => tabLearnRisk('feu') };
+  $('#content').innerHTML = !S.tool ? home() : S.running ? runningView() : (T[S.tab] || tabSynthese)();
   bind();
+}
+// Données : couches de la carte et fiches des sources, réunies dans un seul onglet
+let PLUS = 'couches';
+function tabPlus() {
+  return `<div class="seg chips" role="group"><button data-plus="couches" class="${PLUS === 'couches' ? 'on' : ''}">Couches de la carte</button><button data-plus="sources" class="${PLUS === 'sources' ? 'on' : ''}">Sources et téléchargements</button></div>${PLUS === 'couches' ? tabCouches() : tabSources()}`;
 }
 const EXAMPLES = [
   { n: 'La Teste-de-Buch', d: 'submersion, feu de forêt', c: [44.6386, -1.1475], z: 16 },
@@ -2507,20 +2559,24 @@ const EXAMPLES = [
   { n: 'Caen', d: 'cavités, mouvements de terrain', c: [49.1846, -0.3632], z: 16 },
   { n: 'Lyon 7e', d: 'industrie, sols pollués', c: [45.7298, 4.8364], z: 16 },
   { n: 'Nice', d: 'séisme, inondation', c: [43.7009, 7.2683], z: 16 },
+  { n: 'Biscarrosse', d: 'forêt des Landes', c: [44.392, -1.165], z: 15 },
 ];
+function home() {
+  const done = S.B.length > 0;
+  return `<h2>Trois outils, une même lecture des données officielles</h2>
+  <p class="lead">Choisissez la question qui vous occupe. ${done ? `La zone de ${S.com ? esc(S.com.nom) : 'la carte'} est déjà analysée : chaque outil s'ouvre sur ses résultats.` : 'L\'outil s\'ouvre sur la carte ; cadrez un quartier puis lancez l\'analyse.'}</p>
+  <div class="toolcards">${Object.entries(TOOLS).map(([k, t]) => `<button class="toolcard" data-tool="${k}"><b>${t.lbl}</b><span class="ask">${esc(t.q)}</span><span>${esc(t.d)}</span><small>Ouvrir l'outil ${t.lbl === 'Diagnostic' ? 'de diagnostic' : t.lbl.toLowerCase()}</small></button>`).join('')}</div>
+  <h3>Comment ça marche</h3>
+  <ol class="steps"><li>Cherchez une commune ou une adresse, ou déplacez la carte.</li><li>Cadrez un quartier, ${MAX_KM2} km² au plus, puis lancez <b>Analyser cette zone</b>.</li><li>Lisez les résultats dans l'outil choisi ; un clic sur un bâtiment ouvre sa fiche, le bouton <b>+ Réglages</b> de la carte donne le fond, la 3D et le téléchargement.</li></ol>
+  <p class="muted">Rien n'est extrapolé : chaque information garde les termes, les classes et le lien de sa source. Pour une vente ou une location, l'état des risques réglementaire s'établit sur ${lk('errial')}.</p>
+  <p><a href="#" data-learn="comprendre">Apprendre sans analyser</a> · <a href="#" data-learn="methode">Méthode et limites</a></p>`;
+}
+// Avant toute analyse, chaque onglet d'outil rappelle comment démarrer
 function welcome() {
-  return `<h2>Préparer un territoire aux risques, bâtiment par bâtiment</h2>
-  <p class="lead">RésiTerre interroge en direct ${SOURCES.length} sources officielles (plans de prévention, cartes de la directive inondation, Vigicrues, BRGM, Géorisques, BD TOPO, INSEE, Géoportail de l'urbanisme) et les croise à l'échelle de chaque bâtiment et de chaque rue. Rien n'est extrapolé : chaque information garde ses termes, ses classes et le lien vers sa source.</p>
-  <h3>Trois usages</h3>
-  <div class="uses">
-    <div><b>Anticiper</b><span>Faire monter l'eau scénario par scénario, voir les routes qui passent sous l'eau, les quartiers qui restent au sec mais coupés, et comparer au niveau mesuré en direct à la station Vigicrues.</span></div>
-    <div><b>Prioriser</b><span>Repérer les secteurs de 200 m où se cumulent exposition, plain-pied inondable, établissements sensibles, accès coupés, voie unique près d'un massif, personnes âgées et ménages pauvres.</span></div>
-    <div><b>Préparer</b><span>Éditer une fiche de crise par école, établissement de santé ou camping, et voir le territoire en 3D, relief et bâti compris, avec l'eau à sa hauteur publiée.</span></div>
-  </div>
-  <ol class="steps"><li>Cherchez une commune ou une adresse, ou déplacez la carte.</li><li>Cadrez un quartier, ${MAX_KM2} km² au plus, puis lancez <b>Analyser cette zone</b>. L'analyse s'interrompt à tout moment.</li><li>Ouvrez les onglets <b>Anticiper</b> et <b>Priorités</b>, cliquez un bâtiment pour sa fiche, passez en <b>3D</b> pour le jumeau numérique.</li></ol>
-  <h3>Exemples</h3><div class="examples">${EXAMPLES.map((e, i) => `<button class="btn sm" data-ex="${i}">${esc(e.n)} <span class="muted">${esc(e.d)}</span></button>`).join('')}</div>
-  <div class="note info">RésiTerre informe et aide à préparer. Pour une vente ou une location, l'état des risques réglementaire s'établit sur ${lk('errial')} ; le règlement des plans de prévention et les consignes des autorités font foi.</div>
-  <p>Le vocabulaire, les bons réflexes, la méthode et les limites de chaque calcul sont réunis dans l'espace <a href="#" data-learn="comprendre">Apprendre</a>.</p>`;
+  const t = TOOLS[S.tool] || TOOLS.diag, e = EXAMPLES[t.ex];
+  return `<h2>${esc(t.lbl)}</h2><p class="lead"><b>${esc(t.q)}</b> ${esc(t.d)}</p>
+    <ol class="steps"><li>Cadrez un quartier sur la carte, ou cherchez une adresse.</li><li>Lancez <b>Analyser cette zone</b>.</li></ol>
+    <p><button class="btn sm" data-ex="${t.ex}">Essayer à ${esc(e.n)} <span class="muted">${esc(e.d)}</span></button></p>`;
 }
 function srcState(k) { return S.err[k] ? 'ko' : has(k) ? 'ok' : ''; }
 const stateTxt = (k) => (S.err[k] ? 'sans réponse' : has(k) ? 'reçue' : 'en attente');
@@ -2549,8 +2605,14 @@ function crossings() {
 }
 function tabSynthese() {
   if (!S.bb) return welcome();
-  if (S.running) return `<h2>Analyse en cours</h2><p class="lead">${S.com ? esc(S.com.nom) + ' · ' : ''}Les sources répondent l'une après l'autre. <b>Arrêter</b> interrompt l'analyse ; <b>Analyser cette zone</b> la relance sur la vue affichée.</p><ul class="srclist">${SOURCES.map((s) => `<li class="${srcState(s.id)}"><span class="state">${stateTxt(s.id)}</span> ${esc(s.lbl)}</li>`).join('')}</ul>`;
+  if (S.running) return runningView();
   if (!S.B.length && !has('bati')) return welcome();
+  return synthBody();
+}
+function runningView() {
+  return `<h2>Analyse en cours</h2><p class="lead">${S.com ? esc(S.com.nom) + ' · ' : ''}Les sources répondent l'une après l'autre. <b>Arrêter</b> interrompt l'analyse ; <b>Analyser cette zone</b> la relance sur la vue affichée.</p><ul class="srclist">${SOURCES.map((s) => `<li class="${srcState(s.id)}"><span class="state">${stateTxt(s.id)}</span> ${esc(s.lbl)}</li>`).join('')}</ul>`;
+}
+function synthBody() {
   const B = S.B, D = S.data, g = D.gaspar;
   const anyInfo = B.filter((b) => b.n > 0);
   const withPop = has('insee') && (D.insee || []).length;
@@ -2596,7 +2658,7 @@ function tabBati() {
     <h3>Bâtiments au cumul le plus élevé</h3>
     ${top.length ? `<div class="tblwrap"><table><tr><th>Bâtiment</th><th class="n">Log.</th><th>Informations</th></tr>${top.map((b) => `<tr class="go" data-b="${b.i}"><td>${esc(b.usage)}${b.et === 1 ? ' <span class="pill">1 niveau</span>' : ''}</td><td class="n">${fmt(b.log)}</td><td>${chips(COUNTED.filter((x) => x.test(b)).map((x) => x.id))}</td></tr>`).join('')}</table></div>` : '<p class="muted">Aucun bâtiment concerné par les informations croisées.</p>'}
     <h3>Exporter</h3><div class="actions"><button class="btn sm" id="exp-csv">Tableau CSV</button><button class="btn sm" id="exp-geo">Couche GeoJSON (SIG)</button></div>
-    <p class="muted" style="margin-top:6px">Une ligne par bâtiment, avec ses identifiants BD TOPO et RNB et les informations de chaque source. Les données brutes de chaque source se téléchargent dans l'onglet Sources.</p>`;
+    <p class="muted" style="margin-top:6px">Une ligne par bâtiment, avec ses identifiants BD TOPO et RNB et les informations de chaque source. Les données brutes de chaque source se téléchargent dans l'onglet Données.</p>`;
 }
 const SHORT = { ppi: 'rayon PPI nucléaire', reg: 'plan de prévention', zreg: 'zonage réglementaire', tri: 'surface inondable TRI', zich: 'zone inondée Vigicrues', arg: 'argiles moyenne ou forte', old: 'massif OLD', sol: 'cavité ou mouvement', pol: 'sol pollué', canal: 'canalisation' };
 
@@ -2744,6 +2806,18 @@ function buildQuiz(terms) {
   });
 }
 let QUIZ = null;
+const labReturn = () => `<div class="tool"><h4>Une crue « centennale », c'est rare ?</h4>
+        <p class="muted">Une crue de période de retour T a une chance sur T de survenir chaque année. Sur plusieurs années, ces chances s'additionnent.</p>
+        <div class="seg chips" id="rp-T" role="group" aria-label="Période de retour">${[10, 30, 100, 300, 1000].map((t) => `<button data-t="${t}" class="${t === 100 ? 'on' : ''}">${t} ans</button>`).join('')}</div>
+        <label class="rng">Sur <b id="rp-Nv">30</b> ans <input type="range" id="rp-N" min="1" max="100" value="30" aria-label="Nombre d'années"></label>
+        <div class="big" id="rp-out" aria-live="polite"></div>
+        <p class="muted">30 ans, c'est la durée d'un emprunt immobilier courant.</p></div>`;
+const labWater = (maxH, h0) => `<div class="tool"><h4>Que veut dire une hauteur d'eau ?</h4>
+        <p class="muted">${maxH ? `Dans votre zone, la carte du scénario moyen publie jusqu'à ${fmt(maxH, 1)} m d'eau. ` : ''}Déplacez le curseur.</p>
+        <div class="wat"><svg viewBox="0 0 120 110" aria-hidden="true"><rect x="0" y="100" width="120" height="10" fill="#8a8f8c"/><rect x="62" y="40" width="50" height="60" fill="#e9e3d6" stroke="#6b6b6b"/><polygon points="58,40 87,18 116,40" fill="#b85c38"/><rect x="74" y="66" width="12" height="34" fill="#7a5a3a"/><rect x="92" y="52" width="12" height="12" fill="#bcd6e8" stroke="#6b6b6b"/><rect x="92" y="74" width="12" height="12" fill="#bcd6e8" stroke="#6b6b6b"/><circle cx="25" cy="58" r="5" fill="#33413c"/><rect x="21" y="63" width="8" height="21" rx="3" fill="#33413c"/><rect x="21" y="83" width="3" height="17" fill="#33413c"/><rect x="26" y="83" width="3" height="17" fill="#33413c"/><rect id="wat-r" x="0" y="100" width="120" height="0" fill="#2f78bf" opacity=".55"/></svg>
+        <div><label class="rng"><b id="wat-v">${fmt(h0, 1)} m</b><input type="range" id="wat" min="0" max="2" step="0.05" value="${h0}" aria-label="Hauteur d'eau en mètres"></label><p id="wat-t" aria-live="polite"></p></div></div>
+        <p class="muted">Repères diffusés par les services de prévention ; la silhouette mesure 1,75 m.</p></div>`;
+const labQuiz = (done) => `<div class="tool"><h4>Testez-vous${done ? ' sur les mots de votre zone' : ''}</h4><div id="quiz">${QUIZ.map((q, k) => `<div class="q${k === 0 ? ' cur' : ''}" data-q="${k}"><p class="muted">Question ${k + 1} sur ${QUIZ.length} : à quel mot correspond cette définition ?</p><p>${esc(q.d)}</p><div class="opts">${q.opts.map((o) => `<button data-a="${esc(o)}">${esc(o)}</button>`).join('')}</div><p class="fb" aria-live="polite"></p></div>`).join('')}</div><p class="muted" id="quiz-score"></p><button class="btn sm" id="quiz-new">Autres questions</button></div>`;
 function tabComprendre() {
   const done = S.B.length > 0;
   const rel = done ? relevantRisks(S.B) : [];
@@ -2758,18 +2832,9 @@ function tabComprendre() {
     ${done ? `<h3>Les risques de votre zone (${rel.length})</h3>${rel.length ? rel.map((r, k) => riskCard(r, k === 0)).join('') : '<p class="muted">Aucun des risques suivis n\'est relevé par les sources dans cette zone.</p>'}` : ''}
     <h3>Expérimenter</h3>
     <div class="lab">
-      <div class="tool"><h4>Une crue « centennale », c'est rare ?</h4>
-        <p class="muted">Une crue de période de retour T a une chance sur T de survenir chaque année. Sur plusieurs années, ces chances s'additionnent.</p>
-        <div class="seg chips" id="rp-T" role="group" aria-label="Période de retour">${[10, 30, 100, 300, 1000].map((t) => `<button data-t="${t}" class="${t === 100 ? 'on' : ''}">${t} ans</button>`).join('')}</div>
-        <label class="rng">Sur <b id="rp-Nv">30</b> ans <input type="range" id="rp-N" min="1" max="100" value="30" aria-label="Nombre d'années"></label>
-        <div class="big" id="rp-out" aria-live="polite"></div>
-        <p class="muted">30 ans, c'est la durée d'un emprunt immobilier courant.</p></div>
-      <div class="tool"><h4>Que veut dire une hauteur d'eau ?</h4>
-        <p class="muted">${maxH ? `Dans votre zone, la carte du scénario moyen publie jusqu'à ${fmt(maxH, 1)} m d'eau. ` : ''}Déplacez le curseur.</p>
-        <div class="wat"><svg viewBox="0 0 120 110" aria-hidden="true"><rect x="0" y="100" width="120" height="10" fill="#8a8f8c"/><rect x="62" y="40" width="50" height="60" fill="#e9e3d6" stroke="#6b6b6b"/><polygon points="58,40 87,18 116,40" fill="#b85c38"/><rect x="74" y="66" width="12" height="34" fill="#7a5a3a"/><rect x="92" y="52" width="12" height="12" fill="#bcd6e8" stroke="#6b6b6b"/><rect x="92" y="74" width="12" height="12" fill="#bcd6e8" stroke="#6b6b6b"/><circle cx="25" cy="58" r="5" fill="#33413c"/><rect x="21" y="63" width="8" height="21" rx="3" fill="#33413c"/><rect x="21" y="83" width="3" height="17" fill="#33413c"/><rect x="26" y="83" width="3" height="17" fill="#33413c"/><rect id="wat-r" x="0" y="100" width="120" height="0" fill="#2f78bf" opacity=".55"/></svg>
-        <div><label class="rng"><b id="wat-v">${fmt(h0, 1)} m</b><input type="range" id="wat" min="0" max="2" step="0.05" value="${h0}" aria-label="Hauteur d'eau en mètres"></label><p id="wat-t" aria-live="polite"></p></div></div>
-        <p class="muted">Repères diffusés par les services de prévention ; la silhouette mesure 1,75 m.</p></div>
-      ${QUIZ.length >= 2 ? `<div class="tool"><h4>Testez-vous${done ? ' sur les mots de votre zone' : ''}</h4><div id="quiz">${QUIZ.map((q, k) => `<div class="q${k === 0 ? ' cur' : ''}" data-q="${k}"><p class="muted">Question ${k + 1} sur ${QUIZ.length} : à quel mot correspond cette définition ?</p><p>${esc(q.d)}</p><div class="opts">${q.opts.map((o) => `<button data-a="${esc(o)}">${esc(o)}</button>`).join('')}</div><p class="fb" aria-live="polite"></p></div>`).join('')}</div><p class="muted" id="quiz-score"></p><button class="btn sm" id="quiz-new">Autres questions</button></div>` : ''}
+      ${labReturn()}
+      ${labWater(maxH, h0)}
+      ${QUIZ.length >= 2 ? labQuiz(done) : ''}
     </div>
     <h3>${done ? 'Le vocabulaire de votre zone' : 'Vocabulaire'} (${terms.length})</h3>
     <p class="muted">Touchez un mot pour afficher sa définition.</p>
@@ -2804,7 +2869,7 @@ function bindComprendre() {
       $('#quiz-score').textContent = `${ok} sur ${ans}${ans === QUIZ.length ? (ok === ans ? ' : sans faute.' : '.') : ''}`;
     }));
   });
-  const qn = document.getElementById('quiz-new'); if (qn) qn.addEventListener('click', () => { const y = $('#content').scrollTop; render(); $('#content').scrollTop = y; });
+  const qn = document.getElementById('quiz-new'); if (qn) qn.addEventListener('click', () => { const box = qn.closest('#learnbody') ? null : $('#content'); if (!box) { openLearn(); return; } const y = box.scrollTop; render(); box.scrollTop = y; });
   document.querySelectorAll('.cards .card').forEach((c) => c.addEventListener('click', () => { const o = c.classList.toggle('open'); c.setAttribute('aria-expanded', o); }));
 }
 function srcCount(k) {
@@ -2840,7 +2905,7 @@ function tabSources() {
     ${S.when ? `<p class="muted">Analyse du ${S.when.toLocaleDateString('fr-FR')} à ${S.when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}. Les données de la zone se téléchargent source par source, au format GeoJSON lisible par QGIS.</p>` : ''}
     <h3>Croisées bâtiment par bâtiment</h3>${by(['Bâtiment', 'Parcelle', 'Carreau de 200 m']).map(card).join('')}
     <h3>Renseignées à l'échelle de la commune ou de la zone</h3>${by(['Commune', 'Zone']).map(card).join('')}
-    <h3>Cartes officielles affichables</h3><p>Services cartographiques de Géorisques, depuis l'onglet Couches : ${WMS.map((w) => esc(w.lbl.toLowerCase())).join(', ')}.</p>
+    <h3>Cartes officielles affichables</h3><p>Services cartographiques de Géorisques, depuis l'onglet Données du diagnostic : ${WMS.map((w) => esc(w.lbl.toLowerCase())).join(', ')}.</p>
     <h3>Pour approfondir</h3><div class="links">${Object.keys(LINKS).map(lk).join('')}</div>`;
 }
 function tabMethode() {
@@ -2864,28 +2929,38 @@ function tabMethode() {
       <li>Huit facteurs, tous tirés des sources : au moins un aléa cartographié, plain-pied dans une surface inondable, établissement d'enseignement, de santé ou camping, accès coupé au scénario de référence (scénario moyen des TRI, à défaut premier niveau Vigicrues qui atteint un bâtiment), voie unique près d'un massif boisé, et trois parts de population du carreau INSEE supérieures à celles de l'ensemble de la zone analysée.</li>
       <li>Le classement des carreaux compte les facteurs distincts présents, puis départage par le nombre d'habitants.</li></ul>
     <h3>Jumeau numérique 3D</h3><ul>
-      <li>Le relief vient de l'altimétrie de l'IGN : RGE ALTI pour le sol nu, modèle numérique de surface pour le sol, les bâtiments et les arbres. Les bâtiments sont élevés à leur hauteur dans la BD TOPO.</li>
+      <li>Le relief vient de l'altimétrie de l'IGN (RGE ALTI, le sol nu). Les bâtiments sont élevés à leur hauteur dans la BD TOPO.</li>
       <li>L'eau d'un scénario prend pour épaisseur la borne basse de la classe de hauteur publiée par la source, à partir du sol ; une surface sans hauteur publiée est tracée en nappe mince. Ce n'est pas une modélisation hydraulique : la répartition de l'eau reste celle des cartes officielles.</li></ul>
     <h3>Limites</h3><ul>
       <li>Chaque donnée a sa date et son échelle : un zonage réalisé au 1/25 000 ne se lit pas à la parcelle. Le règlement d'un plan de prévention approuvé fait seul foi.</li>
       <li>L'absence d'information ne prouve pas l'absence d'aléa : de nombreux territoires n'ont ni TRI ni carte Vigicrues, et les inventaires de cavités et de mouvements de terrain restent incomplets.</li>
       <li>Les zonages détaillés des plans de prévention ne sont publiés en données ouvertes que dans une partie des départements ; ailleurs, seul le périmètre est croisé.</li>
       <li>Les informations communales (sismicité, radon, catastrophes naturelles, installations classées) valent pour toute la commune du centre de la zone.</li>
-      <li>L'analyse porte sur ${MAX_KM2} km² et 15 000 bâtiments au plus. Une source secondaire qui n'a pas répondu après ${ALL_DEADLINE / 1000} s est abandonnée pour ne pas bloquer l'analyse ; elle est signalée dans l'onglet Sources.</li></ul>
+      <li>L'analyse porte sur ${MAX_KM2} km² et 15 000 bâtiments au plus. Une source secondaire qui n'a pas répondu après ${ALL_DEADLINE / 1000} s est abandonnée pour ne pas bloquer l'analyse ; elle est signalée dans l'onglet Données.</li></ul>
     <h3 id="about">À propos</h3>
     <p>RésiTerre est conçu et développé par <b>Mahel Chéour</b>, géographe diplômée du Master 2 Dynamiques des Milieux et des Risques de l'Université Paris 1 Panthéon-Sorbonne, spécialisée en risques naturels, SIG et jumeaux numériques territoriaux.</p>
     <p>Contact : <span class="mail">mahelchr@gmail.com</span></p>`;
 }
 
 /* ---------- Interactions ---------- */
-function gotoTab(t) { document.querySelector(`.tabs button[data-tab="${t}"]`).click(); }
+function gotoTab(t) {
+  if (t === 'sources' || t === 'couches') { PLUS = t; t = 'plus'; }
+  const tool = S.tool && TOOLS[S.tool].tabs.some(([k]) => k === t) ? S.tool : Object.keys(TOOLS).find((k) => TOOLS[k].tabs.some(([x]) => x === t));
+  setTool(tool, t);
+}
 function showSource(k) {
   if (!$('#learn').hidden) closeLearn();
   gotoTab('sources');
   const el = document.getElementById('src-' + k);
   if (el) { el.open = true; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 }
-function showRisk(id) { openLearn('comprendre', 'risk-' + id); }
+function showRisk(id) {
+  closeLearn();
+  if (id === 'inond' || id === 'feu') { setTool(id, 'comp-' + id); return; }
+  gotoTab('comprendre');
+  const el = document.getElementById('risk-' + id);
+  if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
 // liens présents dans les fiches et la légende, hors du panneau latéral
 document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-srcref], [data-risk], [data-dry], [data-learn]');
@@ -2912,6 +2987,9 @@ function bind() {
   on('[data-b]', 'click', (el) => { const b = S.B[+el.dataset.b]; flyTo(b.c[0], b.c[1]); openFiche(b, S.dim === '3d' ? { lng: b.c[0], lat: b.c[1] } : L.latLng(b.c[1], b.c[0])); });
   on('[data-ll]', 'click', (el) => { const [la, lo] = el.dataset.ll.split(',').map(Number); flyTo(lo, la); });
   on('[data-ex]', 'click', (el) => { const e = EXAMPLES[+el.dataset.ex]; setDim('2d'); map.setView(e.c, e.z); $('#q').value = e.n; setTimeout(analyse, 50); });
+  on('[data-tool]', 'click', (el) => setTool(el.dataset.tool));
+  on('[data-plus]', 'click', (el) => { PLUS = el.dataset.plus; render(); });
+  if (S.tab === 'comprendre' || S.tab === 'comp-inond' || S.tab === 'comp-feu') bindComprendre();
   on('[data-goto]', 'click', (el) => gotoTab(el.dataset.goto));
   on('[data-layer]', 'click', (el) => { VL[el.dataset.layer].addTo(map); setDim('2d'); legend(); });
   VEC.forEach((v) => { const el = document.getElementById('v-' + v.id); if (el) el.addEventListener('change', () => { if (el.checked) { VL[v.id].addTo(map); reorder(); } else map.removeLayer(VL[v.id]); legend(); }); });
@@ -2944,16 +3022,14 @@ function orderTable() {
     ${rows.map(({ sc, r, e }) => `<tr class="go${S.scen && S.scen.id === sc.id ? ' sel' : ''}" data-sc="${sc.id}"><td>${esc(sc.kind === 'tri' ? sc.short : sc.lbl)}</td><td class="n">${fmt(r.eau.length)}</td><td class="n">${fmt(r.rue.length + r.isole.length)}</td><td class="n">${fmt(r.km, 1)} km</td><td class="n">${fmt(e)}</td></tr>`).join('')}</table></div>`;
 }
 function tabAnticiper() {
-  const intro = `<h2>Anticiper : ce que l'eau coupe, et dans quel ordre</h2>
-    <p class="lead">Une inondation ne touche pas que les bâtiments dans l'eau. En noyant les routes, elle isole des quartiers restés au sec, retarde les secours et complique l'évacuation. Cet onglet croise les cartes officielles d'inondation avec le réseau routier de l'IGN pour montrer, scénario par scénario, ce qui reste joignable.</p>`;
-  if (!S.bb || S.running || !S.B.length) return intro + `<div class="note">Lancez l'analyse d'une zone pour voir, scénario par scénario, les bâtiments atteints, les routes coupées et les établissements isolés. Les exemples d'Arles et de La Teste-de-Buch disposent de cartes de crue.</div>`;
+  if (!S.bb || !S.B.length) return welcome();
+  const intro = `<h2>Ce que l'eau atteint, et ce qu'elle coupe</h2>
+    <p class="lead">En noyant les routes, une crue isole aussi des quartiers restés au sec. Choisissez un scénario : la carte montre les bâtiments dans l'eau, ceux qui sont coupés et les voies sous l'eau.</p>`;
   if (!NET) return intro + `<div class="note warn">Le réseau routier n'a pas pu être chargé${S.err.route ? ' (' + esc(S.err.route) + ')' : ''} : relancez l'analyse dans un moment.</div>`;
-  const fire = fireBlock();
-  if (!NET.scen.length) return intro + `<div class="note">Aucune carte de scénario d'inondation ne couvre la zone : elle se trouve hors des territoires à risque important d'inondation et des tronçons cartographiés par Vigicrues. L'absence de carte ne signifie pas l'absence d'aléa : le plan de prévention et l'atlas des zones inondables de la commune restent la référence.</div>` + fire;
+  if (!NET.scen.length) return intro + `<div class="note">Aucune carte de scénario d'inondation ne couvre la zone : elle se trouve hors des territoires à risque important d'inondation et des tronçons cartographiés par Vigicrues. L'absence de carte ne signifie pas l'absence d'aléa : le plan de prévention et l'atlas des zones inondables de la commune restent la référence.</div><p><button class="btn sm" data-tool="feu">Voir l'outil Feu de forêt</button></p>`;
   const r = impact(S.scen), sc = S.scen;
   const logs = (l) => l.reduce((s, b) => s + b.log, 0);
   const touched = r.etab.filter((x) => x.s !== 'ok' && x.s !== 'na').sort((a, b) => ['eau', 'isole', 'rue'].indexOf(a.s) - ['eau', 'isole', 'rue'].indexOf(b.s));
-  const det = r.etab.filter((x) => x.s === 'ok' && x.det != null && x.det > 150).sort((a, b) => b.det - a.det);
   return intro + `<h3>Choisir le scénario</h3>${scenPicker()}
     <h3>${esc(sc.lbl)}</h3>
     <div class="kpis">
@@ -2962,19 +3038,49 @@ function tabAnticiper() {
       <div class="kpi"><b>${fmt(r.km, 1)} km</b><span>de voies sous l'eau dans la zone</span></div>
       <div class="kpi"><b>${fmt(touched.length)}</b><span>établissements sensibles touchés ou coupés</span></div></div>
     <p><button class="btn sm" data-lensgo="acces">Colorer la carte selon l'accès</button> <button class="btn sm" data-focus="coupes">Montrer les bâtiments coupés</button> <button class="btn sm" data-goto3d="1">Voir l'eau en 3D</button></p>
-    <div class="note"><b>Hors d'eau mais coupés</b> : ${plural(r.rue.length, 'bâtiment')} dont la voie d'accès passe sous l'eau, et ${plural(r.isole.length, 'bâtiment')} dans des quartiers dont toutes les routes vers l'extérieur sont noyées. Aucune carte d'aléa ne les signale, alors qu'ils peuvent rester plusieurs heures ou plusieurs jours sans accès.</div>
-    ${r.names.length ? `<h3>Voies coupées</h3><ul class="cols2">${r.names.slice(0, 12).map(([n, l]) => `<li>${esc(n)} <span class="muted">${mBest(l)}</span></li>`).join('')}</ul>${r.names.length > 12 ? `<p class="muted">et ${r.names.length - 12 > 1 ? `${fmt(r.names.length - 12)} autres voies nommées` : 'une autre voie nommée'}.</p>` : ''}` : ''}
-    <h3>Établissements sensibles</h3>
-    ${touched.length ? `<div class="tblwrap"><table><tr><th>Établissement</th><th>Situation</th></tr>${touched.map((x) => `<tr class="go" data-ll="${x.x.c[1]},${x.x.c[0]}"><td>${esc(x.x.nom)}<br><span class="muted">${esc(x.x.nature)}</span></td><td><span class="pill st-${x.s}">${esc(stLbl(x.s))}</span></td></tr>`).join('')}</table></div>` : '<p class="muted">Aucun établissement d\'enseignement, de santé, de secours ou camping n\'est atteint ni coupé dans ce scénario.</p>'}
-    ${det.length ? `<p class="muted">Restent accessibles au prix d'un détour par la route depuis l'extérieur de la zone : ${det.slice(0, 6).map((x) => `${esc(x.x.nom)} (+${mBest(x.det)})`).join(', ')}.</p>` : ''}
-    <p><button class="btn" data-crise="1">Fiches de crise des établissements</button></p>
-    <h3>Ordre d'atteinte</h3><p class="muted">Du scénario le plus fréquent au plus rare, ou de la plus basse à la plus haute hauteur à la station. Un clic sur une ligne l'affiche.</p>${orderTable()}
-    ${fire}
-    <h3>Ce que ce calcul suppose</h3><ul class="muted">
+    <div class="note"><b>Hors d'eau mais coupés</b> : ${plural(r.rue.length, 'bâtiment')} dont la voie d'accès passe sous l'eau, et ${plural(r.isole.length, 'bâtiment')} dans des quartiers dont toutes les routes vers l'extérieur sont noyées. Aucune carte d'aléa ne les signale.</div>
+    ${r.names.length ? `<details><summary>Voies coupées<small>${plural(r.names.length, 'voie nommée', 'voies nommées')}</small></summary><ul class="cols2">${r.names.slice(0, 12).map(([n, l]) => `<li>${esc(n)} <span class="muted">${mBest(l)}</span></li>`).join('')}</ul>${r.names.length > 12 ? `<p class="muted">et ${r.names.length - 12 > 1 ? `${fmt(r.names.length - 12)} autres voies nommées` : 'une autre voie nommée'}.</p>` : ''}</details>` : ''}
+    <p><button class="btn sm" data-goto="etab">Établissements sensibles : ${plural(touched.length, 'touché')} ou coupé${touched.length > 1 ? 's' : ''}</button></p>
+    <details open><summary>Ordre d'atteinte<small>tous les scénarios</small></summary><p class="muted">Du scénario le plus fréquent au plus rare, ou de la plus basse à la plus haute hauteur à la station. Un clic sur une ligne l'affiche.</p>${orderTable()}</details>
+    <details><summary>Ce que ce calcul suppose</summary><ul class="muted">
       <li>Une voie est comptée comme coupée dès que sa chaussée entre dans la surface inondée du scénario, quelle que soit la hauteur d'eau ; les ponts restent praticables.</li>
       <li>Les routes de la BD TOPO sont prises dans les deux sens, sans tenir compte de la circulation à sens unique ni des barrières.</li>
       <li>Un quartier est dit coupé quand aucune de ses routes ne rejoint, sans passer sous l'eau, la limite du réseau chargé ${R_EXIT} m au-delà de la zone.</li>
-      <li>Les cartes des TRI et de Vigicrues sont des cartes d'information et d'anticipation ; les consignes des autorités en crise priment toujours.</li></ul>`;
+      <li>Les cartes des TRI et de Vigicrues sont des cartes d'information et d'anticipation ; les consignes des autorités en crise priment toujours.</li></ul></details>`;
+}
+function tabEtab() {
+  if (!S.bb || !S.B.length) return welcome();
+  const sens = S.E.filter((e) => e.bids.length);
+  let h = `<h2>Établissements sensibles</h2><p class="lead">Écoles, établissements de santé, services de secours et campings de la zone : leur situation pour chaque scénario, et une fiche de crise imprimable par établissement.</p>
+    <p><button class="btn primary" data-crise="1">Créer les fiches de crise (${sens.length})</button></p>`;
+  if (!sens.length) return h + '<p class="muted">Aucun établissement de ce type recensé par la BD TOPO dans la zone.</p>';
+  const scs = NET ? NET.scen : [];
+  const first = (e) => { for (const sc of scs) { const x = impact(sc).etab.find((y) => y.x === e); if (x && x.s !== 'ok' && x.s !== 'na') return { sc, s: x.s }; } return null; };
+  const rows = sens.map((e) => ({ e, f: first(e) })).sort((a, b) => (a.f ? scs.indexOf(a.f.sc) : 99) - (b.f ? scs.indexOf(b.f.sc) : 99));
+  h += `<div class="tblwrap"><table><tr><th>Établissement</th><th>Premier scénario qui l'atteint ou le coupe</th></tr>${rows.map(({ e, f }) => `<tr class="go" data-ll="${e.c[1]},${e.c[0]}"><td>${esc(e.nom)}<br><span class="muted">${esc(e.nature)}</span></td><td>${f ? `${esc(f.sc.kind === 'tri' ? f.sc.lbl : f.sc.lbl)}<br><span class="pill st-${f.s}">${esc(stLbl(f.s))}</span>` : `<span class="muted">${scs.length ? 'Ni atteint ni coupé par les scénarios cartographiés' : 'Aucun scénario cartographié'}</span>`}</td></tr>`).join('')}</table></div>
+    <p class="muted">Un clic sur une ligne centre la carte sur l'établissement.</p>`;
+  return h;
+}
+function tabFeu() {
+  if (!S.bb || !S.B.length) return welcome();
+  const B = S.B, old = B.filter((b) => b.old != null), near = B.filter(nearMassif), u = B.filter((b) => b.oneway), u1 = u.filter(nearMassif);
+  const logs = (l) => l.reduce((s, b) => s + b.log, 0);
+  let h = `<h2>Les quartiers au contact de la forêt</h2><p class="lead">Un feu progresse par la végétation sèche ; une maison débroussaillée protège ses occupants, et une seconde voie de sortie sauve des vies. Cet outil croise les massifs boisés, les obligations de débroussaillement et le réseau routier.</p>
+    <div class="kpis">
+      <div class="kpi"><b>${fmt(near.length)}</b><span>bâtiments à moins de ${R_OLD} m d'un massif boisé</span></div>
+      <div class="kpi"><b>${S.err.old ? '–' : fmt(old.length)}</b><span>soumis aux obligations de débroussaillement${S.err.old ? ' (source sans réponse)' : ''}</span></div>
+      <div class="kpi alert"><b>${NET ? fmt(u1.length) : '–'}</b><span>près d'un massif et desservis par une seule voie · ${plural(logs(u1), 'logement')}</span></div>
+      <div class="kpi"><b>${NET ? fmt(u.length) : '–'}</b><span>desservis par une seule voie, au total</span></div></div>
+    <p><button class="btn sm" data-lensgo="issue">Colorer selon les voies de sortie</button> <button class="btn sm" data-lensgo="feu">Colorer selon la distance aux massifs</button>${u1.length ? ' <button class="btn sm" data-focus="feu1">Montrer les bâtiments les plus exposés</button>' : ''}</p>`;
+  if (!NET) h += `<div class="note warn">Le réseau routier n'a pas pu être chargé${S.err.route ? ' (' + esc(S.err.route) + ')' : ''} : les voies de sortie ne sont pas évaluées.</div>`;
+  if (old.length && (old[0].oldP || {}).url) h += `<p>Arrêté préfectoral et carte des obligations : ${link(old[0].oldP.url, 'information de la préfecture')}${old[0].oldP.dat_ap_old ? ` (arrêté du ${esc(old[0].oldP.dat_ap_old)})` : ''}.</p>`;
+  const sens = S.E.filter((e) => e.bids.some((i) => nearMassif(S.B[i])));
+  if (sens.length) h += `<details open><summary>Établissements près d'un massif<small>${sens.length}</small></summary><ul>${sens.map((e) => `<li><a href="#" data-ll="${e.c[1]},${e.c[0]}">${esc(e.nom)}</a> <span class="muted">${esc(e.nature)}${e.bids.some((i) => S.B[i].oneway) ? ' · une seule voie d\'accès' : ''}</span></li>`).join('')}</ul><p><button class="btn sm" data-crise="1">Fiches de crise des établissements</button></p></details>`;
+  h += `<details><summary>Ce que ce calcul suppose</summary><ul class="muted">
+    <li>Un bâtiment est dit desservi par une seule voie quand la coupure d'un seul tronçon de la BD TOPO le séparerait du reste du réseau. Un chemin forestier ou une piste de défense des forêts absente de la BD TOPO peut offrir une seconde issue : à vérifier sur le terrain.</li>
+    <li>Un massif boisé désigne un massif soumis aux obligations de débroussaillement, ou une forêt ou une lande de la BD TOPO ; les petites surfaces boisées (nature « Bois ») ne sont pas retenues.</li>
+    <li>L'outil décrit la configuration du territoire à partir des sources croisées, sans qualifier l'intensité d'un feu.</li></ul></details>`;
+  return h;
 }
 function fireBlock() {
   if (!NET) return '';
@@ -3117,7 +3223,6 @@ function openLearn(part, anchor) {
 function closeLearn() { $('#learn').hidden = true; document.body.classList.remove('learning'); }
 document.querySelectorAll('#learnnav button').forEach((b) => b.addEventListener('click', () => openLearn(b.dataset.l)));
 $('#learnx').addEventListener('click', closeLearn);
-$('#learnbtn').addEventListener('click', () => openLearn());
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#learn').hidden) closeLearn(); });
 function learnAnticipation() {
   return `<h2>Anticiper une crise : l'effet domino</h2>
@@ -3142,6 +3247,47 @@ function learnAnticipation() {
     <li><b>Les gestionnaires de réseaux et les services de secours</b>, pour repérer les itinéraires critiques et les secteurs à voie unique.</li>
     <li><b>Les habitants</b>, pour connaître leur point sec le plus proche et le moment où leur rue devient impraticable.</li></ul>
   <div class="note info">Le plan communal de sauvegarde (PCS) est notamment obligatoire dans les communes dotées d'un plan de prévention des risques naturels ou comprises dans un plan particulier d'intervention. ${lk('memento')}</div>`;
+}
+
+/* ---------- Comprendre, dans chaque outil, à partir des résultats de la zone ---------- */
+const LEARN_TERMS = {
+  inond: ['Aléa', 'Enjeux', 'Vulnérabilité', 'Risque', 'Période de retour', 'TRI', 'Zones d\'inondation Vigicrues', 'EAIP', 'AZI', 'PPRN', 'Zonage réglementaire', 'Cote de référence', 'Zone refuge', 'PAPI', 'DICRIM', 'PCS', 'Catastrophe naturelle', 'Fonds Barnier'],
+  feu: ['Aléa', 'Enjeux', 'Vulnérabilité', 'Risque', 'OLD', 'PPRN', 'DICRIM', 'PCS', 'Catastrophe naturelle', 'Données carroyées'],
+};
+function tabLearnRisk(id) {
+  const r = RISKS.find((x) => x.id === id), done = S.B.length > 0;
+  const terms = GLOSSARY.filter(([t]) => LEARN_TERMS[id].includes(t));
+  QUIZ = buildQuiz(terms);
+  let h = `<h2>Comprendre ${id === 'inond' ? 'les inondations' : 'les feux de forêt'}${done && S.com ? ' à ' + esc(S.com.nom) : ''}</h2>
+    <p class="lead">${done ? 'Ce qui suit part de ce que l\'analyse a trouvé dans votre zone.' : 'Lancez une analyse : cette page partira alors des résultats de votre zone.'}</p>`;
+  // ce que l'outil a calculé ici, expliqué
+  if (done && id === 'inond' && NET && S.scen) {
+    const x = impact(S.scen);
+    h += `<div class="here"><b>Ici, au scénario « ${esc(S.scen.lbl)} »</b><ul><li>${plural(x.eau.length, 'bâtiment')} dans l'eau : c'est ce que montre une carte d'aléa.</li><li>${plural(x.rue.length + x.isole.length, 'bâtiment')} au sec mais coupés : c'est l'effet domino, que les cartes ne montrent pas.</li></ul></div>`;
+  }
+  if (done && id === 'feu' && NET) {
+    const u1 = S.B.filter((b) => b.oneway && nearMassif(b)).length;
+    h += `<div class="here"><b>Ici</b><ul><li>${plural(S.B.filter(nearMassif).length, 'bâtiment')} à moins de ${R_OLD} m d'un massif boisé.</li><li>${plural(u1, 'bâtiment')} près d'un massif et desservis par une seule voie.</li></ul></div>`;
+  }
+  h += riskCard(r, true);
+  h += `<h3>Notions clés</h3><div class="cards">${(id === 'inond' ? [
+    ['Effet domino', 'La crue coupe une route, la route coupée isole un quartier, le quartier isolé ne reçoit plus ni secours ni soins à domicile.'],
+    ['Îlot routier', 'Rues encore au sec dont toutes les sorties passent sous l\'eau. Leurs habitants ne sont ni inondés ni joignables.'],
+    ['Point sec', 'Premier carrefour hors de la surface inondée, atteint par le plus court chemin. On s\'y rend avant l\'arrivée de l\'eau, jamais en traversant une route inondée.'],
+    ['Station de référence', 'Échelle de mesure sur la rivière. Vigicrues relie chaque hauteur à la station à l\'emprise inondée correspondante.'],
+  ] : [
+    ['Voie unique', 'Accès dont la coupure sépare un secteur du reste du réseau. La même route sert à évacuer les habitants et à faire venir les secours.'],
+    ['Interface habitat-forêt', 'Zone où les maisons touchent la végétation : c\'est là que les feux font le plus de dégâts aux habitations.'],
+    ['Débroussaillement', 'Réduction de la végétation combustible autour des constructions, obligatoire sur 50 m autour d\'elles à moins de 200 m d\'un massif désigné.'],
+  ]).map(([a, b]) => `<button class="card" aria-expanded="false"><b>${esc(a)}</b><span>${esc(b)}</span></button>`).join('')}</div>`;
+  if (id === 'inond') {
+    const maxH = done ? zoneMaxHt() : 0, h0 = maxH ? Math.min(2, Math.round(maxH * 10) / 10) : 0.5;
+    h += `<h3>Expérimenter</h3><div class="lab">${labReturn()}${labWater(maxH, h0)}</div>`;
+  }
+  if (QUIZ.length >= 2) h += `<h3>Testez-vous</h3><div class="lab">${labQuiz(done)}</div>`;
+  h += `<h3>Vocabulaire</h3><div class="cards">${terms.map(([a, b]) => `<button class="card" aria-expanded="false"><b>${esc(a)}</b><span>${esc(b)}</span></button>`).join('')}</div>
+    <p class="muted">Tous les risques, la méthode et les limites des calculs : <a href="#" data-learn="comprendre">espace Apprendre</a> · <a href="#" data-learn="methode">méthode</a>.</p>`;
+  return h;
 }
 
 /* ---------- Rapports (document imprimable, avec les liens vers chaque source) ---------- */
