@@ -246,22 +246,55 @@ ol.reflex { padding-left: 20px; } ol.reflex li { margin: 4px 0; }
 .fiche .bar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; padding-top: 8px; border-top: 1px solid #e3e7e4; }
 .fiche .bar a, .fiche .bar button { font-size: 12px; border: 1px solid #d5dbd7; border-radius: 12px; padding: 2px 9px; background: #fff; color: #0f5b4f; text-decoration: none; cursor: pointer; }
 
+.sheetbar { display: none; }
 @media (max-width: 900px) {
-  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 48% 52%; }
-  #side { order: 2; border-right: 0; border-top: 1px solid var(--line); }
+  /* Téléphone : carte plein écran, panneau en tiroir que l'on tire vers le haut */
+  :root { --sheet: 42vh; }
+  html, body { overflow: hidden; }
+  #app { display: block; height: 100%; }
+  #mapwrap { position: fixed; inset: 0; }
+  #side { position: fixed; left: 0; right: 0; bottom: 0; height: var(--sheet); z-index: 1500; border-right: 0; border-radius: 16px 16px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.18); transition: height .22s ease; padding-bottom: env(safe-area-inset-bottom); }
+  body.dragging #side { transition: none; }
+  .sheetbar { display: flex; align-items: center; justify-content: center; gap: 10px; height: 26px; flex: none; cursor: grab; touch-action: none; border: 0; background: none; width: 100%; padding: 0; }
+  .sheetbar i { width: 44px; height: 5px; border-radius: 3px; background: var(--line); display: block; }
+  header.top { padding: 2px 14px 8px; gap: 7px; }
+  .brand h1 { font-size: 18px; }
+  .brand span, #zonehint, .credit { display: none; }
+  .status { font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 0; }
+  .legend.small { padding: 7px 10px; } .legend.small h4 { margin: 0; }
+  .searchrow input { padding: 10px 11px; font-size: 16px; }
+  .actions .btn { padding: 9px 12px; min-height: 40px; }
+  .toolbar { padding: 6px 14px 0; }
+  .toolbar button { min-height: 40px; font-size: 13px; }
+  .tabs button { padding: 12px 10px; }
+  #content { padding: 14px 14px 32px; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .btn.sm { min-height: 36px; padding: 6px 11px; font-size: 13px; }
+  .seg button { min-height: 36px; padding: 7px 11px; }
+  .maptools { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; gap: 6px; }
   .lens { font-size: 0; gap: 0; padding-left: 4px; }
-  .lens select { font-size: 12.5px; max-width: 190px; }
-  .legend { max-width: 200px; font-size: 11px; bottom: 12px; }
-  .leaflet-popup-content { width: 260px !important; }
-  .maplibregl-popup-content { width: 280px; }
+  .lens select { font-size: 13px; max-width: 46vw; min-height: 34px; }
+  .mapopts { top: 56px; left: 8px; right: 8px; min-width: 0; max-height: calc(100vh - var(--sheet) - 70px); overflow-y: auto; }
+  .legend { max-width: min(260px, 70vw); font-size: 11.5px; left: 8px; bottom: calc(var(--sheet) + 10px); max-height: calc(100vh - var(--sheet) - 80px); transition: bottom .22s ease; }
+  .leaflet-bottom, .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { bottom: var(--sheet) !important; transition: bottom .22s ease; }
+  .focusbar { top: 54px; }
+  .leaflet-popup-content { width: min(300px, 82vw) !important; }
+  .maplibregl-popup-content { width: min(310px, 86vw); }
+  .fiche .scroll { max-height: 34vh; }
   .srclist { columns: 1; }
+  ul.cols2 { columns: 1; }
+  .wat { grid-template-columns: 1fr; }
+  #learnbody { padding: 16px 14px 60px; }
+  #learn > header { padding: 8px 12px; gap: 8px; }
+  #learnnav { order: 3; width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  #learnnav button { white-space: nowrap; }
 }
 </style>
 </head>
 <body>
 <div id="app">
   <aside id="side">
+    <button class="sheetbar" id="sheetbar" aria-label="Agrandir ou réduire le panneau"><i></i></button>
     <header class="top">
       <div class="brand"><h1><a href="#" id="home" title="Revenir à l'accueil">RésiTerre</a></h1><span>Les risques d'un quartier, lus dans les données officielles · par <a href="#" id="about-link">Mahel Chéour</a></span></div>
       <div class="searchrow">
@@ -2111,9 +2144,10 @@ async function resolveAddress(b) {
 let popup3d = null;
 function openFiche(b, ll) {
   if (!b) return;
+  if (MOBILE.matches && SHEET === 'full') setSheet('half');
   const html = ficheHTML(b);
   if (S.dim === '3d' && map3d) { popup3d && popup3d.remove(); popup3d = new maplibregl.Popup({ maxWidth: '370px', focusAfterOpen: false }).setLngLat(ll).setHTML(html).addTo(map3d); popupOpen = true; $('#legend').classList.add('small'); popup3d.on('close', () => { popupOpen = false; $('#legend').classList.toggle('small', legendSmall); }); }
-  else L.popup({ maxWidth: 340, autoPanPadding: [30, 60] }).setLatLng(ll).setContent(html).openOn(map);
+  else L.popup({ maxWidth: 340, autoPanPaddingTopLeft: [20, MOBILE.matches ? 60 : 30], autoPanPaddingBottomRight: [20, MOBILE.matches ? sheetPx() + 20 : 60] }).setLatLng(ll).setContent(html).openOn(map);
   document.querySelectorAll(`[data-print="${b.i}"]`).forEach((x) => x.addEventListener('click', () => openReport(buildingReport(b))));
   resolveAddress(b).then((a) => {
     const el = document.getElementById('addr-' + b.i);
@@ -2379,10 +2413,16 @@ $('#mapdl').addEventListener('click', downloadMap);
 
 /* ---------- Analyse ---------- */
 const status = (t) => { $('#status').textContent = t; };
+// Sur téléphone, le tiroir couvre le bas de la carte : on n'analyse que la partie visible
+function visibleBox() {
+  const sz = map.getSize(), cut = MOBILE.matches ? Math.min(sz.y - 80, sheetPx('peek')) : 0;
+  const nw = map.containerPointToLatLng([0, 0]), se = map.containerPointToLatLng([sz.x, sz.y - cut]);
+  return [nw.lng, se.lat, se.lng, nw.lat];
+}
 function viewBbox() {
   let bb;
   if (S.dim === '3d' && map3d) { const b = map3d.getBounds(); bb = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]; }
-  else { const b = map.getBounds(); bb = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]; }
+  else bb = visibleBox();
   const km2 = km2Of(bb);
   if (km2 > MAX_KM2) {
     const c = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2], f = Math.sqrt(MAX_KM2 / km2);
@@ -2392,7 +2432,7 @@ function viewBbox() {
   return bb;
 }
 function zoneHint() {
-  const b = map.getBounds(), km2 = km2Of([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+  const km2 = km2Of(visibleBox());
   $('#zonehint').textContent = map.getZoom() < 12 ? 'Rapprochez-vous d\'un quartier ou d\'une commune' : km2 > MAX_KM2 ? `Vue de ${fmt(km2)} km² : seul le centre (${MAX_KM2} km²) sera analysé` : `Vue de ${fmt(km2, 1)} km²`;
 }
 map.on('moveend', zoneHint);
@@ -2486,12 +2526,13 @@ async function analyse() {
   S.running = false; S.ctrl = null; stopBtn.hidden = true; skipBtn.hidden = true; progress(1, 1);
   lensClasses(); draw();
   if (!S.tool) setTool('diag'); else render();
+  sheetAtLeast('half');
   $('#report').disabled = false;
   const ko = SOURCES.filter((s) => S.err[s.id]).length;
   status(`${plural(S.B.length, 'bâtiment')} croisé${S.B.length > 1 ? 's' : ''} avec ${SOURCES.length - ko} sources sur ${SOURCES.length}${ko ? ` (${ko} sans réponse, détail dans l'onglet Données)` : ''}. Un clic sur un bâtiment ouvre sa fiche.`);
   try { history.replaceState(null, '', `#${map.getZoom()}/${map.getCenter().lat.toFixed(5)}/${map.getCenter().lng.toFixed(5)}`); } catch (e) { /* adresse facultative */ }
 }
-$('#run').addEventListener('click', analyse);
+$('#run').addEventListener('click', () => { if (MOBILE.matches && SHEET === 'full') setSheet('half'); analyse(); });
 
 /* ---------- Trois outils sur une même analyse ----------
    L'analyse interroge toutes les sources une fois ; chaque outil n'en
@@ -2540,7 +2581,7 @@ function setTool(t, tab) {
   }
   render(); $('#content').scrollTop = 0;
 }
-document.querySelectorAll('#toolbar button').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
+document.querySelectorAll('#toolbar button').forEach((b) => b.addEventListener('click', () => { setTool(b.dataset.tool); sheetAtLeast('half'); }));
 $('#home').addEventListener('click', (e) => { e.preventDefault(); closeLearn(); setTool(null); });
 function render() {
   const T = { synthese: tabSynthese, anticiper: tabAnticiper, etab: tabEtab, priorites: tabPriorites, bati: tabBati, commune: tabCommune, plus: tabPlus, feu: tabFeu,
@@ -2969,6 +3010,7 @@ document.addEventListener('click', (e) => {
   if (a.dataset.srcref) showSource(a.dataset.srcref); else if (a.dataset.dry) showDry(+a.dataset.dry); else if (a.dataset.learn) openLearn(a.dataset.learn); else showRisk(a.dataset.risk);
 });
 function setFocus(list, lbl) {
+  setSheet('peek');
   S.focus = new Set(list.map((b) => b.i));
   $('#focust').textContent = `${lbl} : ${plural(list.length, 'bâtiment')}`; $('#focusbar').hidden = false;
   restyle();
@@ -2979,7 +3021,7 @@ function setFocus(list, lbl) {
   }
 }
 $('#focusx').addEventListener('click', () => { S.focus = null; $('#focusbar').hidden = true; restyle(); });
-function flyTo(lon, lat) { if (S.dim === '3d' && map3d) map3d.flyTo({ center: [lon, lat], zoom: 17.5 }); else map.setView([lat, lon], 18); }
+function flyTo(lon, lat) { setSheet('peek'); if (S.dim === '3d' && map3d) map3d.flyTo({ center: [lon, lat], zoom: 17.5 }); else map.setView([lat, lon], 18); }
 function bind() {
   // limité au panneau : les boutons de la carte portent aussi des attributs data-*
   const on = (sel, ev, fn) => $('#content').querySelectorAll(sel).forEach((el) => el.addEventListener(ev, () => fn(el)));
@@ -2987,7 +3029,7 @@ function bind() {
   on('[data-b]', 'click', (el) => { const b = S.B[+el.dataset.b]; flyTo(b.c[0], b.c[1]); openFiche(b, S.dim === '3d' ? { lng: b.c[0], lat: b.c[1] } : L.latLng(b.c[1], b.c[0])); });
   on('[data-ll]', 'click', (el) => { const [la, lo] = el.dataset.ll.split(',').map(Number); flyTo(lo, la); });
   on('[data-ex]', 'click', (el) => { const e = EXAMPLES[+el.dataset.ex]; setDim('2d'); map.setView(e.c, e.z); $('#q').value = e.n; setTimeout(analyse, 50); });
-  on('[data-tool]', 'click', (el) => setTool(el.dataset.tool));
+  on('[data-tool]', 'click', (el) => { setTool(el.dataset.tool); sheetAtLeast('half'); });
   on('[data-plus]', 'click', (el) => { PLUS = el.dataset.plus; render(); });
   if (S.tab === 'comprendre' || S.tab === 'comp-inond' || S.tab === 'comp-feu') bindComprendre();
   on('[data-goto]', 'click', (el) => gotoTab(el.dataset.goto));
@@ -3290,6 +3332,48 @@ function tabLearnRisk(id) {
   return h;
 }
 
+/* ---------- Téléphone : panneau en tiroir ----------
+   Trois positions : replié (recherche et bouton d'analyse visibles), à
+   mi-hauteur, déplié. On le tire par sa poignée ou on la touche pour passer
+   d'une position à l'autre. */
+const MOBILE = window.matchMedia('(max-width: 900px)');
+let SHEET = 'half';
+function sheetPx(st = SHEET) {
+  const vh = window.innerHeight;
+  if (st === 'peek') { const h = $('header.top'); return Math.min(vh * 0.45, (h ? h.offsetHeight : 150) + 30 + ($('#toolbar').hidden ? 0 : 48)); }
+  if (st === 'full') return vh - 60;
+  return Math.round(vh * 0.5);
+}
+function setSheet(st) {
+  if (!MOBILE.matches) return;
+  SHEET = st;
+  document.documentElement.style.setProperty('--sheet', sheetPx(st) + 'px');
+  $('#sheetbar').setAttribute('aria-label', st === 'full' ? 'Réduire le panneau' : 'Agrandir le panneau');
+}
+const sheetAtLeast = (st) => { const o = ['peek', 'half', 'full']; if (o.indexOf(SHEET) < o.indexOf(st)) setSheet(st); };
+(() => {
+  const bar = $('#sheetbar'); let y0 = null, h0 = 0, moved = false;
+  bar.addEventListener('pointerdown', (e) => { if (!MOBILE.matches) return; y0 = e.clientY; h0 = $('#side').offsetHeight; moved = false; bar.setPointerCapture(e.pointerId); document.body.classList.add('dragging'); });
+  bar.addEventListener('pointermove', (e) => {
+    if (y0 == null) return;
+    const dy = e.clientY - y0; if (Math.abs(dy) > 6) moved = true;
+    const h = Math.max(90, Math.min(window.innerHeight - 50, h0 - dy));
+    document.documentElement.style.setProperty('--sheet', h + 'px');
+  });
+  bar.addEventListener('pointerup', (e) => {
+    if (y0 == null) return;
+    document.body.classList.remove('dragging');
+    const h = $('#side').offsetHeight; y0 = null;
+    if (!moved) { setSheet(SHEET === 'peek' ? 'half' : SHEET === 'half' ? 'full' : 'peek'); return; }
+    const st = ['peek', 'half', 'full'].map((k) => [k, Math.abs(sheetPx(k) - h)]).sort((a, b) => a[1] - b[1])[0][0];
+    setSheet(st);
+  });
+  window.addEventListener('resize', () => { if (MOBILE.matches) setSheet(SHEET); else document.documentElement.style.removeProperty('--sheet'); });
+  MOBILE.addEventListener('change', () => { if (MOBILE.matches) setSheet(SHEET); else document.documentElement.style.removeProperty('--sheet'); });
+  // sur téléphone, la légende démarre repliée : un toucher l'affiche
+  if (MOBILE.matches) { setSheet('half'); legendSmall = true; legend(); }
+})();
+
 /* ---------- Rapports (document imprimable, avec les liens vers chaque source) ---------- */
 const REPORT_CSS = `body{font-family:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;color:#18211f;max-width:860px;margin:0 auto;padding:28px 24px 60px;font-size:13.5px;line-height:1.5;background:#fff}
 h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 8px;padding-bottom:4px;border-bottom:2px solid #0f5b4f}h3{font-size:14px;margin:18px 0 6px}
@@ -3491,7 +3575,7 @@ let st, sugg = [], sel = -1;
 function pickPlace(f) {
   const [lo, la] = f.geometry.coordinates, z = f.properties.type === 'municipality' ? 15 : 17;
   $('#suggest').hidden = true; $('#q').value = f.properties.label;
-  setDim('2d'); map.setView([la, lo], z);
+  setDim('2d'); map.setView([la, lo], z); setSheet('peek'); $('#q').blur();
   status('Lieu trouvé. Ajustez le cadrage si besoin, puis lancez Analyser cette zone.');
 }
 function drawSuggest() {
