@@ -921,21 +921,43 @@ async function geopfCatalog(sig) {
   return CAPS;
 }
 const pick = (p, keys) => { for (const k of keys) { const v = p[k] ?? p[k.toUpperCase()]; if (v != null && v !== '') return String(v); } return ''; };
+/* Une couche relève du zonage réglementaire quand ses objets portent le type de
+   règlement du standard CNIG (typereg) ou quand son nom l'annonce. Les autres
+   couches liées aux risques (cartes d'aléa, études) sont gardées à part : elles
+   informent, mais n'ont pas la portée d'un règlement. */
+const LOCAL_MAX = 30;
+const NOT_REG_NAME = /al[ée]a|hauteur|vitesse|enjeu|historique|atlas|tri_|_tri\b|etude|[ée]tude/i;
+function isRegLayer(l, feats) {
+  if (feats.some((f) => { const p = f.properties || {}; return pick(p, ['typereg', 'type_reg']) !== ''; })) return true;
+  // seul le zonage d'un plan de prévention entre dans la lecture réglementaire :
+  // un autre zonage local (feux de forêt, étude) est rangé à part
+  const t = l.name + ' ' + l.title;
+  return /ppr/i.test(t) && !NOT_REG_NAME.test(t);
+}
 async function fetchLocalZones({ bb, sig }) {
   const cat = await geopfCatalog(sig);
-  const hit = cat.filter((f) => f.bb && f.bb[0] <= bb[2] && f.bb[2] >= bb[0] && f.bb[1] <= bb[3] && f.bb[3] >= bb[1]).slice(0, 15);
-  const out = [];
+  const all = cat.filter((f) => f.bb && f.bb[0] <= bb[2] && f.bb[2] >= bb[0] && f.bb[1] <= bb[3] && f.bb[3] >= bb[1]);
+  // les couches dont le nom annonce un zonage réglementaire passent en premier
+  all.sort((a, b) => /ppr/i.test(b.name + ' ' + b.title) - /ppr/i.test(a.name + ' ' + a.title));
+  const hit = all.slice(0, LOCAL_MAX);
+  const out = [], other = [], layers = [];
   await pool(hit, 4, async (l) => {
     try {
       const j = await getJSON(GEOPF(l.name, bb, '&COUNT=3000'), sig, 40000);
-      for (const f of (j && j.features) || []) {
-        if (!f.geometry || !/Polygon/.test(f.geometry.type)) continue;
+      const feats = ((j && j.features) || []).filter((f) => f.geometry && /Polygon/.test(f.geometry.type));
+      if (!feats.length) return;
+      const reg = isRegLayer(l, feats);
+      for (const f of feats) {
         const p = f.properties || {};
-        f.properties = { ...p, _title: l.title, _layer: l.name, _code: pick(p, ['codezone', 'code_zone', 'zone', 'typezone']), _typereg: pick(p, ['typereg', 'type_reg']).padStart(2, '0').replace(/^00$/, ''), _lib: pick(p, ['libelle', 'lib_zone', 'nomzone', 'nom', 'libzone']) };
-        out.push(f);
+        f.properties = { ...p, _title: l.title, _layer: l.name, _reg: reg, _code: pick(p, ['codezone', 'code_zone', 'zone', 'typezone']), _typereg: pick(p, ['typereg', 'type_reg']).padStart(2, '0').replace(/^00$/, ''), _lib: pick(p, ['libelle', 'lib_zone', 'nomzone', 'nom', 'libzone']), _gaspar: pick(p, ['id_gaspar', 'idgaspar', 'gaspar']) };
+        (reg ? out : other).push(f);
       }
+      layers.push({ name: l.name, title: l.title, reg, n: feats.length });
     } catch (e) { if (sig.aborted) throw e; /* couche sans réponse : les autres sont gardées */ }
   });
+  // les couches d'aléa et d'étude sont rangées à part, sans entrer dans la lecture réglementaire
+  S.data.zloc = other;
+  S.zlocInfo = { layers, found: all.length, kept: hit.length };
   return out;
 }
 
@@ -958,30 +980,41 @@ async function fetchCatalogue({ sig, com }) {
 }
 
 /* ---------- Procédures de la base GASPAR (API Géorisques) ---------- */
+const aleaEtat = (a) => (a.annul ? 'Annulé' : a.abrog ? 'Abrogé' : a.depresc ? 'Déprescrit' : a.appro ? 'Approuvé' : a.anticip ? 'Appliqué par anticipation' : a.presc ? 'Prescrit' : 'En cours');
 function normPPR(d, kind, insee) {
   const c = (d.communes || []).find((x) => x.codeInsee === insee) || {};
   const al = (c.aleas || []).map((a) => ({ lib: a.libelle, sous: (a.sousAlea || []).map((s) => s.libelle).filter(Boolean), presc: a.datePrescription, appro: a.dateApprobation, abrog: a.dateAbrog, annul: a.dateAnnulation, depresc: a.dateDeprescription, anticip: a.dateAppliAnt }));
-  const any = (k) => al.find((a) => a[k]);
-  let etat = 'En cours';
-  if (any('annul')) etat = 'Annulé'; else if (any('abrog')) etat = 'Abrogé'; else if (any('depresc')) etat = 'Déprescrit';
-  else if (any('appro')) etat = 'Approuvé'; else if (any('anticip')) etat = 'Appliqué par anticipation'; else if (any('presc')) etat = 'Prescrit';
+  al.forEach((a) => { a.etat = aleaEtat(a); });
+  // le statut se lit aléa par aléa : un plan peut être approuvé pour un aléa et abrogé pour un autre
+  const etats = [...new Set(al.map((a) => a.etat))];
+  const etat = etats.length === 1 ? etats[0] : etats.length ? 'Statut différent selon l\'aléa' : 'En cours';
   const appro = al.map((a) => a.appro).filter(Boolean).sort((a, b) => frToNum(b) - frToNum(a))[0] || '';
   const presc = al.map((a) => a.presc).filter(Boolean).sort((a, b) => frToNum(a) - frToNum(b))[0] || '';
   return { id: d.idGaspar, nom: d.libPpr, kind, modele: d.modeleProcedure, bassin: d.libBassinRisques, revision: !!d.etatRevision,
     zones: ((d.zonageReglementaire && d.zonageReglementaire.listTypeReg) || []).map((z) => ({ nom: z.nom, type: z.libelle })),
-    lien: c.lienPpr || null, aleas: al, etat, appro, presc, maj: d.dateModification };
+    lien: c.lienPpr || null, aleas: al, etat, mixte: etats.length > 1, appro, presc, maj: d.dateModification };
 }
-async function fetchProcedures({ sig, com }) {
-  const out = [];
-  await Promise.all(['pprn', 'pprt', 'pprm'].map(async (kind) => {
-    const j = await getJSON(`${GR_API}gaspar/${kind}?codeInsee=${com.code}&page_size=50`, sig, 45000, true);
-    const list = (j && j.content) || [];
-    const det = await pool(list, 3, async (p) => {
-      try { return await getJSON(`${GR_API}gaspar/${kind}/${encodeURIComponent(p.idGaspar)}`, sig, 45000); } catch (e) { if (e instanceof Cancelled) throw e; return p; }
-    });
-    det.forEach((d) => d && out.push(normPPR(d, kind, com.code)));
-  }));
-  return out;
+// Les plans sont cherchés pour chaque commune que touche la zone, pas seulement la commune centrale
+async function fetchProcedures({ sig, com, comms }) {
+  const list = (comms && comms.length ? comms : [com]).filter(Boolean);
+  const seen = new Map();
+  await pool(list, 2, async (cm) => {
+    await Promise.all(['pprn', 'pprt', 'pprm'].map(async (kind) => {
+      const j = await getJSON(`${GR_API}gaspar/${kind}?codeInsee=${cm.code}&page_size=50`, sig, 45000, true);
+      const items = (j && j.content) || [];
+      const det = await pool(items, 3, async (p) => {
+        try { return await getJSON(`${GR_API}gaspar/${kind}/${encodeURIComponent(p.idGaspar)}`, sig, 45000); } catch (e) { if (e instanceof Cancelled) throw e; return p; }
+      });
+      det.forEach((d) => {
+        if (!d) return;
+        const n = normPPR(d, kind, cm.code);
+        const k = n.id || n.nom;
+        if (seen.has(k)) { const o = seen.get(k); if (!o.coms.includes(cm.nom)) o.coms.push(cm.nom); }
+        else { n.coms = [cm.nom]; seen.set(k, n); }
+      });
+    }));
+  });
+  return [...seen.values()];
 }
 // Exécute une requête secondaire avec son propre délai : en cas de lenteur, elle est abandonnée sans emporter le reste
 async function withTimeout(sig, ms, fn) {
@@ -989,12 +1022,12 @@ async function withTimeout(sig, ms, fn) {
   sig.addEventListener('abort', stop); const t = setTimeout(stop, ms);
   try { return await fn(c.signal); } catch (e) { if (sig.aborted) throw e; return null; } finally { clearTimeout(t); sig.removeEventListener('abort', stop); }
 }
-async function fetchGaspar({ sig, com }) {
+async function fetchGaspar({ sig, com, comms }) {
   const one = async (path) => { try { const j = await getJSON(GR_API + path, sig, 30000, true); return (j && j.data) || []; } catch (e) { if (sig.aborted) throw e; return null; } };
   const [risques, tri, papi, azi, dicrim, tim, sism, radon, proc] = await Promise.all([
     one(`gaspar/risques?code_insee=${com.code}`), one(`gaspar/tri?code_insee=${com.code}`), one(`gaspar/papi?code_insee=${com.code}`),
     one(`gaspar/azi?code_insee=${com.code}`), one(`gaspar/dicrim?code_insee=${com.code}`), one(`gaspar/tim?code_insee=${com.code}`),
-    one(`zonage_sismique?code_insee=${com.code}`), one(`radon?code_insee=${com.code}`), withTimeout(sig, 20000, (s2) => fetchProcedures({ sig: s2, com })),
+    one(`zonage_sismique?code_insee=${com.code}`), one(`radon?code_insee=${com.code}`), withTimeout(sig, 30000, (s2) => fetchProcedures({ sig: s2, com, comms })),
   ]);
   return {
     risques: risques && risques[0] ? risques[0].risques_detail || [] : risques, tri, papi, azi, dicrim, tim, proc,
@@ -1047,7 +1080,7 @@ const SOURCES = [
   { id: 'pm1', lbl: 'Plans de prévention des risques naturels et miniers', org: 'Services de l\'État', prod: 'Géoportail de l\'urbanisme, servitudes PM1', link: 'gpu', scale: 'Bâtiment', svc: 'apicarto',
     about: 'Périmètres des PPR naturels et miniers versés au Géoportail de l\'urbanisme comme servitudes d\'utilité publique, avec le document officiel.',
     says: 'Un bâtiment situé dans le périmètre relève du règlement du plan.',
-    limits: 'Le versement au Géoportail n\'est pas encore exhaustif ; le périmètre ne dit pas dans quelle zone du plan se trouve le bâtiment.',
+    limits: 'Le versement au Géoportail n\'est pas encore exhaustif : un plan approuvé peut manquer. Le périmètre ne dit pas dans quelle zone du plan se trouve le bâtiment. Un bâtiment est compté dans le périmètre quand son centre s\'y trouve.',
     run: async ({ bb, sig }) => ((await getJSON(GPU('PM1', bb), sig)) || {}).features || [] },
   { id: 'pm3', lbl: 'Plans de prévention des risques technologiques', org: 'Services de l\'État', prod: 'Géoportail de l\'urbanisme, servitudes PM3', link: 'gpu', scale: 'Bâtiment', svc: 'apicarto',
     about: 'Périmètres des PPRT, établis autour des sites Seveso seuil haut et versés au Géoportail de l\'urbanisme.',
@@ -1057,12 +1090,12 @@ const SOURCES = [
   { id: 'zreg', lbl: 'Zonages réglementaires des PPR publiés au standard national', org: 'Services de l\'État', prod: 'Couches au standard CNIG de la Géoplateforme', link: 'geoplateforme', scale: 'Bâtiment', svc: 'geopf', deadline: 40000, slow: true,
     about: 'Zones réglementaires des PPR que les directions départementales des territoires publient au standard national du CNIG, découvertes automatiquement dans le catalogue de la Géoplateforme.',
     says: 'Type de règlement de la zone (prescriptions, interdiction, interdiction stricte), code de la zone et lien vers le règlement quand il est fourni.',
-    limits: 'Seule une partie des départements publie ces zonages ; ailleurs, seul le périmètre du plan est connu.',
+    limits: 'Seule une partie des départements publie ces zonages ; ailleurs, seul le périmètre du plan est connu. Une couche qui porte l\'identifiant GASPAR de son plan y est rattachée ; sinon, la date du plan et la version en vigueur se vérifient dans le règlement. Les autres couches locales liées aux risques (aléas, études, autres réglementations) sont affichées à part, car elles ne sont pas le zonage d\'un plan de prévention.',
     run: fetchLocalZones },
   { id: 'tri', lbl: 'Surfaces inondables et hauteurs d\'eau des TRI', org: 'DREAL, ministère de la Transition écologique', prod: 'Directive inondation, rapportage 2020 (Géorisques)', link: 'georisques', scale: 'Bâtiment', svc: 'gr', layer: 'LIMITETRI_FXX', deadline: 60000, slow: true,
     about: 'Cartes produites pour la directive européenne inondation dans les territoires à risque important d\'inondation, par modélisation hydraulique et analyse des crues historiques.',
     says: 'Surface inondable pour les scénarios fréquent, moyen, moyen avec changement climatique et extrême, classes de hauteur d\'eau, ouvrages de protection.',
-    limits: 'Seuls les TRI sont cartographiés ; ces cartes informent et n\'ont pas la valeur réglementaire d\'un PPR.',
+    limits: 'Seuls les TRI sont cartographiés ; ces cartes informent et n\'ont pas la valeur réglementaire d\'un PPR. Elles sont établies au 1/25 000 : leur lecture bâtiment par bâtiment est une approche, pas une limite exacte.',
     run: async ({ bb, sig }) => {
       const lim = await grWFS('LIMITETRI_FXX', bb, sig, 50);
       if (!lim.length) return { tri: [], layers: {} };
@@ -1152,7 +1185,7 @@ const SOURCES = [
   { id: 'gaspar', lbl: 'Risques, plans de prévention et documents de la commune', org: 'Services de l\'État', prod: 'Base GASPAR (API Géorisques)', link: 'donnees', scale: 'Commune', needCom: true, svc: 'grapi',
     about: 'Base nationale de gestion assistée des procédures administratives relatives aux risques, tenue par les services de l\'État.',
     says: 'Risques recensés dans la commune, état et dates des plans de prévention, TRI, PAPI, atlas des zones inondables, DICRIM, zonage sismique, potentiel radon.',
-    limits: 'Renseigne l\'existence des procédures et documents ; leur contenu se consulte dans les documents eux-mêmes.',
+    limits: 'Renseigne l\'existence des procédures et documents, commune par commune : un plan recensé pour une commune peut ne couvrir qu\'une partie de son territoire, voire rien de la zone étudiée. Le contenu se consulte dans les documents eux-mêmes.',
     run: fetchGaspar },
   { id: 'catnat', lbl: 'Arrêtés de catastrophe naturelle', org: 'Ministère de l\'Intérieur', prod: 'Base GASPAR (API Géorisques)', link: 'ccr', scale: 'Commune', needCom: true, svc: 'grapi',
     about: 'Arrêtés interministériels reconnaissant l\'état de catastrophe naturelle, publiés au Journal officiel depuis 1982.',
@@ -1192,7 +1225,7 @@ function buildIndex() {
   const tri = {};
   if (D.tri) for (const l of TRI_LAYERS) tri[l.id] = prep(D.tri.layers[l.id] || []);
   I = {
-    pm1: prep(D.pm1), pm3: prep(D.pm3), zreg: prep(D.zreg), zich: prep(D.zich), tri,
+    pm1: prep(D.pm1), pm3: prep(D.pm3), zreg: prep(D.zreg), zloc: prep(D.zloc), zich: prep(D.zich), tri,
     arg: prep(D.argile, (f) => f.properties.id),
     old: prep(D.old, null, R_OLD), foret: prep(D.foret, (f) => f.properties.nature, R_OLD),
     cav: ptsOf(D.cavite), mvt: ptsOf(D.mvt),
@@ -1211,7 +1244,7 @@ const SC_ORDER = ['FOR', 'MOY', 'MCC', 'FAI'];
 // Cartes Vigicrues : le type 1 porte les classes de hauteur d'eau ; les autres types signalent des zones à part (incertitude, arrière de digue…)
 const isZin = (p) => +p.cdtypezone === 1;
 function assess(c) {
-  const r = { pm1: hitsOf(c, I.pm1), pm3: hitsOf(c, I.pm3), zreg: hitsOf(c, I.zreg), zich: hitsOf(c, I.zich), tri: {}, triht: {}, triFirst: null };
+  const r = { pm1: hitsOf(c, I.pm1), pm3: hitsOf(c, I.pm3), zreg: hitsOf(c, I.zreg), zloc: hitsOf(c, I.zloc), zich: hitsOf(c, I.zich), tri: {}, triht: {}, triFirst: null };
   for (const l of TRI_LAYERS) {
     const h = hitsOf(c, I.tri[l.id] || []);
     if (!h.length) continue;
@@ -1328,7 +1361,7 @@ const LENSES = [
     classes: () => [0, 1, 2, 3, 4].map((k, j) => ({ k, lbl: k === 0 ? 'Aucun facteur' : k === 4 ? 'Quatre facteurs ou plus' : `${['', 'Un', 'Deux', 'Trois'][k]} facteur${k > 1 ? 's' : ''}`, col: ['#e3e7e5', '#fde0c5', '#f6a96b', '#e0592a', '#8f1d0f'][j] })),
     of: (b) => Math.min(4, (b.v || []).length) },
   { id: 'reg', lbl: 'Plans de prévention des risques', src: ['pm1', 'pm3', 'zreg'],
-    note: 'Zone du règlement quand le plan publie son zonage au standard national ; à défaut, situation dans ou hors du périmètre du plan.',
+    note: 'Zone du règlement quand le plan publie son zonage au standard national ; à défaut, situation dans ou hors du périmètre du plan. Chaque bâtiment est situé par son centre : un bâtiment à cheval sur une limite se lit sur la carte.',
     read: 'Le zonage d\'un PPR traduit l\'aléa et les enjeux en règles d\'urbanisme. En zone d\'interdiction, souvent rouge sur les cartes, les constructions nouvelles sont en principe exclues ; en zone de prescriptions, souvent bleue, elles restent possibles sous conditions, par exemple un premier plancher au-dessus de la cote de référence. Seul le règlement écrit, accessible depuis la fiche, fait foi.',
     classes: () => [
       { k: 'z04', lbl: 'Zone d\'interdiction stricte', col: '#5c0f1a' }, { k: 'z03', lbl: 'Zone d\'interdiction', col: '#c0392b' },
@@ -1341,7 +1374,7 @@ const LENSES = [
     } },
   { id: 'tri', lbl: 'Inondation, scénarios des TRI', src: ['tri'],
     note: 'Scénario le plus fréquent dont la surface inondable atteint le bâtiment, d\'après les cartes des territoires à risque important d\'inondation.',
-    read: 'Le scénario fréquent correspond à une crue qui revient en moyenne tous les 10 à 30 ans, le moyen à une crue de période de retour de 100 à 300 ans, l\'extrême à une crue au moins millénale. Un bâtiment atteint dès le scénario fréquent a de bonnes chances de connaître l\'eau au cours d\'une vie. Ces cartes informent ; la portée réglementaire revient au PPR.',
+    read: 'Le scénario fréquent correspond à une crue qui revient en moyenne tous les 10 à 30 ans, le moyen à une crue de période de retour de 100 à 300 ans, l\'extrême à une crue au moins millénale. Un bâtiment atteint dès le scénario fréquent a de bonnes chances de connaître l\'eau au cours d\'une vie. Ces cartes informent ; la portée réglementaire revient au PPR. Elles sont établies au 1/25 000 : près d\'une limite, la position exacte d\'un bâtiment reste incertaine.',
     classes: () => [...SC_ORDER.map((s, j) => ({ k: s, lbl: TRI_SCEN[j].lbl, col: ['#08306b', '#2171b5', '#6baed6', '#c6dbef'][j] })), { k: 0, lbl: 'Hors des surfaces inondables cartographiées', col: GREY }],
     of: (b) => b.triFirst || 0, empty: () => S.data.tri && !S.data.tri.tri.length ? 'La zone se trouve hors des territoires à risque important d\'inondation, qui sont les seuls cartographiés selon ces scénarios.' : '' },
   { id: 'triht', lbl: 'Inondation, hauteur d\'eau du scénario moyen', src: ['tri'],
@@ -1428,6 +1461,85 @@ function colorFor(b) {
   if (!lensOk()) return NA;
   const c = CLS.get(String(LENS[S.lens].of(b)));
   return c ? c.col : GREY;
+}
+
+/* ---------- Couverture de la zone par chaque plan ----------
+   Un plan peut ne couvrir qu'une partie de la zone analysée. Pour chaque
+   périmètre publié (servitudes PM1 et PM3), on mesure la part de la zone
+   qu'il recouvre, par une grille de points régulière, et le nombre de
+   bâtiments dont le centre s'y trouve. */
+const COV_GRID = 150;
+function shareOfBox(polys, bb, fbb) {
+  let n = 0, k = 0;
+  for (let i = 0; i < COV_GRID; i++) for (let j = 0; j < COV_GRID; j++) {
+    const x = bb[0] + (bb[2] - bb[0]) * (i + 0.5) / COV_GRID, y = bb[1] + (bb[3] - bb[1]) * (j + 0.5) / COV_GRID;
+    n++; if (x >= fbb[0] && x <= fbb[2] && y >= fbb[1] && y <= fbb[3] && inPolys(x, y, polys)) k++;
+  }
+  return n ? k / n : 0;
+}
+function covLabel(c) {
+  if (c.share >= 0.995) return 'Couvre toute la zone étudiée';
+  if (c.share < 0.01 && !c.nb) return 'Effleure le bord de la zone étudiée, sans bâtiment concerné';
+  if (c.share > 0) return `Couvre ${c.share < 0.01 ? 'moins de 1 %' : fmt(Math.round(c.share * 100)) + ' %'} de la zone étudiée`;
+  return c.nb ? 'Touche le bord de la zone étudiée' : 'Effleure la zone étudiée, sans bâtiment concerné';
+}
+function planCoverage() {
+  if (S.cov && S.cov.n === S.B.length) return S.cov;
+  const D = S.data, bb = S.bb, out = [];
+  const seen = new Map();
+  for (const [list, kind] of [[D.pm1 || [], 'pm1'], [D.pm3 || [], 'pm3']]) for (const f of list) {
+    if (!f.geometry) continue;
+    const p = f.properties, key = pprDoc(p) || pprTitle(p) + '|' + (p.idass || p.gpu_doc_id || '');
+    const polys = polysOf(f.geometry), fbb = bboxOf(f.geometry);
+    let e = seen.get(key);
+    if (!e) { e = { key, kind, p, props: [], polys: [], bbs: [], title: pprTitle(p), doc: pprDoc(p) }; seen.set(key, e); out.push(e); }
+    e.props.push(p); e.polys.push(...polys); e.bbs.push(fbb);
+  }
+  for (const e of out) {
+    const fbb = [Math.min(...e.bbs.map((b) => b[0])), Math.min(...e.bbs.map((b) => b[1])), Math.max(...e.bbs.map((b) => b[2])), Math.max(...e.bbs.map((b) => b[3]))];
+    e.bb = fbb; e.share = shareOfBox(e.polys, bb, fbb);
+    const ps = new Set(e.props);
+    e.bids = S.B.filter((b) => (e.kind === 'pm3' ? b.pm3 : b.pm1).some((x) => ps.has(x))).map((b) => b.i);
+    e.nb = e.bids.length; e.lbl = covLabel(e);
+  }
+  out.sort((a, b) => b.share - a.share || b.nb - a.nb);
+  // rattachement aux procédures de la base GASPAR. Un identifiant GASPAR se compose
+  // du département, du service et d'un numéro (13DDTM20000134) ; les servitudes du
+  // Géoportail reprennent ce numéro dans le nom du document (PM1_ARLES_20000134_act.pdf).
+  // Le lien n'est retenu que si le numéro complet y figure et que le département concorde.
+  const proc = (D.gaspar && D.gaspar.proc) || [];
+  const link = new Map();
+  for (const pr of proc) {
+    const m = /^(\d[\dAB]\d?)\D+(\d{8,})$/i.exec(String(pr.id || ''));
+    if (!m) continue;
+    const dep = m[1].toUpperCase(), num = m[2], re = new RegExp('(^|\\D)' + num + '(\\D|$)');
+    const kind = pr.kind === 'pprt' ? 'pm3' : 'pm1';
+    const hits = out.filter((e) => e.kind === kind && e.props.some((p) => {
+      const pd = /_SUP_([0-9AB]{2,3})_/i.exec(p.partition || '');
+      if (pd && pd[1].toUpperCase() !== dep) return false;
+      return [p.fichier, p.idgen, p.idass, p.nomass, p.nomsuplitt, p.gpu_doc_id].some((v) => typeof v === 'string' && re.test(v));
+    }));
+    if (hits.length) link.set(pr.id, hits);
+  }
+  // couches de zonage réglementaire : part de la zone couverte par chaque couche
+  const lay = new Map();
+  for (const f of D.zreg || []) {
+    const k = f.properties._layer; let e = lay.get(k);
+    if (!e) { e = { title: f.properties._title, layer: k, polys: [], bbs: [], ids: new Set() }; lay.set(k, e); }
+    if (f.properties._gaspar) e.ids.add(String(f.properties._gaspar).toUpperCase());
+    e.polys.push(...polysOf(f.geometry)); e.bbs.push(bboxOf(f.geometry));
+  }
+  const zlay = [...lay.values()].map((e) => {
+    const fbb = [Math.min(...e.bbs.map((b) => b[0])), Math.min(...e.bbs.map((b) => b[1])), Math.max(...e.bbs.map((b) => b[2])), Math.max(...e.bbs.map((b) => b[3]))];
+    const share = shareOfBox(e.polys, bb, fbb);
+    const nb = S.B.filter((b) => b.zreg.some((z) => z._layer === e.layer)).length;
+    return { title: e.title, layer: e.layer, share, nb, bb: fbb, lbl: covLabel({ share, nb }), procs: proc.filter((pr) => pr.id && e.ids.has(String(pr.id).toUpperCase())) };
+  }).sort((a, b) => b.share - a.share);
+  // le zonage publié au standard porte souvent l'identifiant GASPAR de son plan : lien sûr
+  const zlink = new Map();
+  for (const z of zlay) for (const pr of z.procs) (zlink.get(pr.id) || zlink.set(pr.id, []).get(pr.id)).push(z);
+  S.cov = { n: S.B.length, plans: out, link, zlay, zlink };
+  return S.cov;
 }
 /* ---------- Effet domino : le réseau routier face aux aléas ----------
    Le réseau des tronçons de route de la BD TOPO devient un graphe. Pour
@@ -1788,6 +1900,7 @@ const VL = {
   equip: L.layerGroup(),
   pm: gj({ style: (f) => ({ color: f.properties._pm3 ? '#7a3fa0' : '#c98316', weight: 2, fill: false, dashArray: '6 4' }), onEachFeature: (f, l) => l.bindPopup(() => pprPopup(f.properties)) }),
   zreg: gj({ style: (f) => ({ color: ZREG_COL[f.properties._typereg] || '#7d70b5', weight: 0.8, fillColor: ZREG_COL[f.properties._typereg] || '#9b8fc7', fillOpacity: 0.28 }), onEachFeature: (f, l) => l.bindPopup(() => zonePopup(f.properties)) }),
+  zloc: gj({ style: () => ({ color: '#6f7d8c', weight: 0.8, dashArray: '2 3', fillColor: '#aab4bf', fillOpacity: 0.15 }), onEachFeature: (f, l) => l.bindPopup(() => zonePopup(f.properties)) }),
   tri: gj({ interactive: false, style: (f) => ({ stroke: false, fillColor: SCEN_COL[f.properties._s], fillOpacity: 0.3 }) }),
   zich: gj({ interactive: false, style: (f) => (isZin(f.properties) ? { color: '#2f78bf', weight: 0.3, fillColor: '#2f78bf', fillOpacity: 0.12 } : { color: '#7f8fa6', weight: 1, dashArray: '3 3', fillColor: '#9fb0c8', fillOpacity: 0.08 }) }),
   argile: gj({ interactive: false, style: (f) => ({ stroke: false, fillColor: ({ 1: '#f6e27a', 2: '#f39c3c', 3: '#d7301f' })[f.properties.id] || '#f6e27a', fillOpacity: 0.3 }) }),
@@ -1810,7 +1923,8 @@ const VEC = [
   { id: 'bati', lbl: 'Bâtiments, colorés selon la lecture choisie', on: true },
   { id: 'equip', lbl: 'Établissements (enseignement, santé, secours, campings)', on: true, leg: () => GROUPS.map((g) => `<div class="row"><i class="pt" style="background:#fff;border:2px solid #18211f;display:grid;place-items:center;font:600 8px/1 sans-serif;width:14px;height:14px">${g.ico}</i>${esc(g.lbl)}</div>`).join('') },
   { id: 'pm', lbl: 'Périmètres des plans de prévention', on: true, leg: () => '<div class="row"><i class="line" style="color:#c98316"></i>PPR naturel ou minier</div><div class="row"><i class="line" style="color:#7a3fa0"></i>PPR technologique</div>' },
-  { id: 'zreg', lbl: 'Zonages réglementaires détaillés', on: true, leg: () => Object.entries(TYPEREG).reverse().map(([k, v]) => `<div class="row"><i style="background:${ZREG_COL[k]};opacity:.6"></i>${v}</div>`).join('') + '<div class="row"><i style="background:#9b8fc7;opacity:.6"></i>Autre zone publiée</div>' },
+  { id: 'zreg', lbl: 'Zonages réglementaires détaillés', on: true, leg: () => Object.entries(TYPEREG).reverse().map(([k, v]) => `<div class="row"><i style="background:${ZREG_COL[k]};opacity:.6"></i>${v}</div>`).join('') + '<div class="row"><i style="background:#9b8fc7;opacity:.6"></i>Zone sans type de règlement renseigné</div>' },
+  { id: 'zloc', lbl: 'Autres couches locales liées aux risques', on: false, leg: () => '<div class="row"><i style="background:#aab4bf;opacity:.6;border:1px dashed #6f7d8c"></i>Aléa, étude ou autre réglementation, hors plan de prévention</div>' },
   { id: 'tri', lbl: 'Surfaces inondables des TRI', on: true, leg: () => TRI_SCEN.map((s) => `<div class="row"><i style="background:${SCEN_COL[s.s]};opacity:.6"></i>${s.lbl}</div>`).join('') },
   { id: 'zich', lbl: 'Zones d\'inondation Vigicrues', on: false, leg: () => '<div class="row"><i style="background:#2f78bf;opacity:.35"></i>Zone inondée cartographiée</div><div class="row"><i style="background:#9fb0c8;opacity:.5;border:1px dashed #7f8fa6"></i>Zone signalée à part (incertitude, digue…)</div>' },
   { id: 'ouv', lbl: 'Ouvrages de protection (digues) des TRI', on: true, leg: () => '<div class="row"><i class="line" style="color:#0b3d5c;border-top-style:solid;border-top-width:3px"></i>Ouvrage de protection</div>' },
@@ -2038,6 +2152,9 @@ function ficheSections(b) {
   for (const p of b.pm1.concat(b.pm3)) { const u = pprDoc(p); r += `<li>Dans le périmètre du plan <b>${u ? link(u, pprTitle(p)) : esc(pprTitle(p))}</b>${srcTag(p.suptype === 'pm3' ? 'pm3' : 'pm1', 'Géoportail de l\'urbanisme, servitude ' + (p.suptype === 'pm3' ? 'PM3' : 'PM1'))}</li>`; }
   for (const z of b.zreg) r += `<li>${esc(z._title)}, zone ${esc(z._code || z._lib || 'sans code')}${TYPEREG[z._typereg] ? ` (<b>${TYPEREG[z._typereg].toLowerCase()}</b>)` : ''}${z._lib && z._code ? ', ' + esc(z._lib) : ''}${z.urlfic ? ' · ' + link(z.urlfic, 'règlement de la zone') : ''}${srcTag('zreg', 'couche ' + z._layer)}</li>`;
   if (!r) r = absent('pm1', 'Hors des périmètres de plans de prévention publiés sur le Géoportail de l\'urbanisme');
+  const zl = [...new Set((b.zloc || []).map((z) => z._title))];
+  if (zl.length) r += `<li>Dans ${zl.length > 1 ? 'des couches locales' : 'une couche locale'} liée${zl.length > 1 ? 's' : ''} aux risques, hors plan de prévention : ${zl.map(esc).join(', ')}${srcTag('zreg', 'Géoplateforme')}</li>`;
+  if (r) r += '<li class="no">Bâtiment situé par son centre : s\'il est à cheval sur une limite, la carte du règlement fait foi.</li>';
   sec.push(['Plans de prévention', r, null]);
   // Inondation
   let f = '';
@@ -2197,6 +2314,7 @@ function draw() {
   VL.bati.clearLayers().addData(S.B.map((b) => ({ type: 'Feature', geometry: b.geom, properties: { i: b.i } })));
   VL.pm.clearLayers().addData([...(D.pm1 || []), ...(D.pm3 || []).map((f) => ({ ...f, properties: { ...f.properties, _pm3: true } }))]);
   VL.zreg.clearLayers().addData(D.zreg || []);
+  VL.zloc.clearLayers().addData(D.zloc || []);
   VL.tri.clearLayers().addData(triFeatures());
   VL.ouv.clearLayers().addData((D.tri && D.tri.ouv) || []);
   VL.zich.clearLayers().addData(D.zich || []);
@@ -2455,7 +2573,7 @@ async function analyse() {
   if (S.ctrl) S.ctrl.abort();
   const ctrl = new AbortController(); S.ctrl = ctrl; const sig = ctrl.signal;
   const bb = viewBbox();
-  Object.assign(S, { bb, data: {}, err: {}, ms: {}, com: null, comms: [], B: [], E: [], focus: null, when: new Date(), running: true });
+  Object.assign(S, { bb, data: {}, err: {}, ms: {}, com: null, comms: [], B: [], E: [], focus: null, when: new Date(), running: true, zlocInfo: null, cov: null });
   ADDR.clear();
   $('#focusbar').hidden = true;
   VL.zone.setBounds([[bb[1], bb[0]], [bb[3], bb[2]]]);
@@ -2485,7 +2603,7 @@ async function analyse() {
     const c0 = (res[0] || [])[0] || S.comms[0];
     S.com = c0 ? { ...c0, lon: c0.centre ? c0.centre.coordinates[0] : cen[0], lat: c0.centre ? c0.centre.coordinates[1] : cen[1] } : null;
     tick();
-    const ctx = { bb, sig, com: S.com };
+    const ctx = { bb, sig, com: S.com, comms: S.comms };
     const clipBox = padBox(bb, CLIP_PAD);
     // garde-fou global : passé ce délai, les sources secondaires encore en attente sont abandonnées
     const guard = setTimeout(() => { for (const [k, sc] of pending) if (k !== 'bati') { sc.global = true; sc.abort(); } }, ALL_DEADLINE);
@@ -2554,7 +2672,7 @@ const TOOLS = {
 };
 const TOOL_LAYERS = {
   diag: null,
-  inond: ['bati', 'equip', 'pm', 'zreg', 'tri', 'zich', 'ouv', 'net', 'path', 'zone'],
+  inond: ['bati', 'equip', 'pm', 'zreg', 'zloc', 'tri', 'zich', 'ouv', 'net', 'path', 'zone'],
   feu: ['bati', 'equip', 'old', 'foret', 'net', 'zone'],
 };
 function setTool(t, tab) {
@@ -2703,6 +2821,60 @@ function tabBati() {
 }
 const SHORT = { ppi: 'rayon PPI nucléaire', reg: 'plan de prévention', zreg: 'zonage réglementaire', tri: 'surface inondable TRI', zich: 'zone inondée Vigicrues', arg: 'argiles moyenne ou forte', old: 'massif OLD', sol: 'cavité ou mouvement', pol: 'sol pollué', canal: 'canalisation' };
 
+/* ---------- Plans de prévention : ce qui couvre vraiment la zone étudiée ----------
+   Trois niveaux, du plus sûr au plus général : les périmètres publiés, croisés
+   avec la zone ; les zonages réglementaires détaillés ; la liste des procédures
+   de la base GASPAR, établie commune par commune. */
+function pprSection() {
+  const D = S.data, g = D.gaspar || {}, proc = g.proc || [];
+  const cov = S.B.length || (D.pm1 || []).length || (D.pm3 || []).length ? planCoverage() : { plans: [], link: new Map(), zlay: [], zlink: new Map() };
+  const tot = S.B.length;
+  const km2 = S.bb ? (ringAreaM2([[S.bb[0], S.bb[1]], [S.bb[2], S.bb[1]], [S.bb[2], S.bb[3]], [S.bb[0], S.bb[3]], [S.bb[0], S.bb[1]]]) / 1e6) : 0;
+  const errLine = (k) => (S.err[k] ? `<div class="note warn">${esc(SRC[k].lbl)} : la source n'a pas répondu (${esc(S.err[k])}).</div>` : '');
+  const kindLbl = (k) => (k === 'pm3' ? 'plan de prévention des risques technologiques' : 'plan de prévention des risques naturels ou miniers');
+  const bat = (n) => (tot ? `${plural(n, 'bâtiment')} sur ${fmt(tot)}` : '');
+  let h = `<h3>Plans de prévention et zone étudiée</h3>
+    <p class="muted">La zone étudiée est le cadre analysé, d'environ ${fmt(km2, 1)} km².${S.comms.length > 1 ? ` Elle touche ${plural(S.comms.length, 'commune')} : ${S.comms.map((c) => esc(c.nom)).join(', ')}. Les plans de chacune sont recherchés.` : ''} Un plan peut ne couvrir qu'une partie de la zone : la part couverte est indiquée pour chaque périmètre publié.</p>`;
+  // 1. périmètres publiés
+  h += `<h4>Périmètres publiés qui touchent la zone (${fmt(cov.plans.length)})</h4>${errLine('pm1')}${errLine('pm3')}`;
+  if (cov.plans.length) {
+    h += `<ul class="cov">${cov.plans.map((e, i) => {
+      const procs = proc.filter((pr) => (cov.link.get(pr.id) || []).includes(e));
+      return `<li><b>${e.doc ? link(e.doc, e.title) : esc(e.title)}</b><br><span class="muted">${esc(kindLbl(e.kind))}, servitude ${e.kind === 'pm3' ? 'PM3' : 'PM1'} du Géoportail de l'urbanisme</span><br>${esc(e.lbl)}${tot ? ' · ' + bat(e.nb) : ''} · <a href="#" data-cov="${i}">Voir sur la carte</a>${procs.length ? `<br><span class="muted">Procédure de la base GASPAR : ${procs.map((pr) => esc(pr.nom)).join(', ')}</span>` : ''}</li>`;
+    }).join('')}</ul>`;
+  } else if (has('pm1') || has('pm3')) {
+    const appr = proc.filter((pr) => pr.aleas.some((a) => a.etat === 'Approuvé' || a.etat === 'Appliqué par anticipation'));
+    h += `<p class="muted">Aucun périmètre de plan publié sur le Géoportail de l'urbanisme ne touche la zone.${appr.length ? ` La base GASPAR recense pourtant ${plural(appr.length, 'plan')} approuvé${appr.length > 1 ? 's' : ''} ou appliqué${appr.length > 1 ? 's' : ''} par anticipation pour ${S.comms.length > 1 ? 'ces communes' : 'la commune'} : soit leur périmètre n'est pas encore publié en données, soit il ne touche pas la zone. La carte du règlement permet de trancher.` : ''}</p>`;
+  }
+  // 2. zonages réglementaires détaillés
+  if (cov.zlay.length) {
+    h += `<h4>Zonages réglementaires détaillés (${plural(cov.zlay.length, 'couche')})</h4>
+      <ul class="cov">${cov.zlay.map((z, i) => `<li><b>${esc(z.title)}</b><br>${esc(z.lbl)}${tot ? ' · ' + bat(z.nb) : ''} · <a href="#" data-zlay="${i}">Voir sur la carte</a>${z.procs.length ? `<br><span class="muted">Zonage de la procédure ${z.procs.map((pr) => `${esc(pr.nom)} (${esc(pr.id)}, ${esc(pr.etat.toLowerCase())}${!pr.mixte && pr.appro ? ' le ' + esc(pr.appro) : ''})`).join(', ')}, d'après l'identifiant GASPAR porté par la couche</span>` : '<br><span class="muted">La couche ne porte pas d\'identifiant GASPAR : la version du plan se vérifie dans le règlement.</span>'}</li>`).join('')}</ul>
+      <p class="muted">Couches publiées par les services de l'État au standard national.</p>`;
+  } else if (cov.plans.length && has('zreg')) {
+    h += `<p class="muted">Le zonage détaillé de ces plans n'est pas publié en données ouvertes : la zone de chaque bâtiment se lit sur la carte du règlement (PDF).</p>`;
+  }
+  const zl = [...new Map((D.zloc || []).map((f) => [f.properties._layer, f.properties._title])).values()];
+  if (zl.length) h += `<h4>Autres couches locales liées aux risques (${fmt(zl.length)})</h4><ul>${zl.map((t) => `<li>${esc(t)}</li>`).join('')}</ul><p class="muted">Trouvées dans le même catalogue de la Géoplateforme : cartes d'aléa, études ou autres réglementations. Elles ne sont pas le zonage d'un plan de prévention et ne sont pas comptées dans sa lecture.</p>`;
+  if (S.zlocInfo && S.zlocInfo.found > S.zlocInfo.kept) h += `<p class="muted">${fmt(S.zlocInfo.found)} couches locales recoupent la zone ; les ${fmt(S.zlocInfo.kept)} premières, en commençant par les zonages réglementaires, ont été lues.</p>`;
+  // 3. procédures GASPAR
+  h += `<h4>Procédures recensées dans la base GASPAR (${fmt(proc.length)})</h4>${errLine('gaspar')}
+    <p class="muted">Recensement commune par commune : un plan listé ici peut ne couvrir qu'une partie de ${S.comms.length > 1 ? 'ces communes' : 'la commune'}, voire rien de la zone étudiée.</p>`;
+  h += proc.length ? proc.map((p) => {
+    const lk = cov.link.get(p.id) || [], lz = (cov.zlink && cov.zlink.get(p.id)) || [];
+    const sk = p.kind === 'pprt' ? 'pm3' : 'pm1', noPerim = has(sk) && !S.err[sk] && !cov.plans.some((e) => e.kind === sk);
+    const inZone = lk.length ? lk.map((e) => esc(e.lbl)).join(' ; ') : lz.length ? lz.map((z) => esc(z.lbl)).join(' ; ') + ', d\'après son zonage réglementaire publié' : noPerim ? `Aucun périmètre de plan ${sk === 'pm3' ? 'technologique' : 'naturel ou minier'} publié ne touche la zone étudiée. Si ce plan n'est pas encore versé au Géoportail de l'urbanisme, la carte du règlement permet de vérifier.` : `Non déterminé automatiquement : aucun périmètre publié n'est rattaché à cette procédure dans les données. Comparer avec les périmètres ci-dessus ou la carte du règlement.`;
+    return `<details><summary>${esc(p.nom)}<small>${esc(p.etat)}${!p.mixte && p.appro ? ' le ' + esc(p.appro) : !p.mixte && p.presc ? ' le ' + esc(p.presc) : ''}</small></summary><dl class="kv">
+      <dt>Procédure</dt><dd>${esc(p.modele || p.kind.toUpperCase())}${p.revision ? ' · en révision' : ''}</dd>
+      ${S.comms.length > 1 ? `<dt>Commune${p.coms.length > 1 ? 's' : ''}</dt><dd>${p.coms.map(esc).join(', ')}</dd>` : ''}
+      <dt>Dans la zone étudiée</dt><dd>${inZone}</dd>
+      <dt>Aléas</dt><dd>${p.aleas.length ? p.aleas.map((a) => `${esc(a.lib)}${a.sous.length ? ' (' + a.sous.map(esc).join(', ') + ')' : ''} : <b>${esc(a.etat.toLowerCase())}</b>${a.etat === 'Approuvé' && a.appro ? ' le ' + esc(a.appro) : a.etat === 'Prescrit' && a.presc ? ' le ' + esc(a.presc) : a.etat === 'Abrogé' && a.abrog ? ' le ' + esc(a.abrog) : a.etat === 'Annulé' && a.annul ? ' le ' + esc(a.annul) : ''}`).join('<br>') : '–'}</dd>
+      ${p.zones.length ? `<dt>Zones du règlement</dt><dd>${p.zones.map((z) => `${esc(z.nom)} <span class="muted">(${esc((z.type || '').toLowerCase())})</span>`).join(', ')}</dd>` : ''}
+      ${p.bassin ? `<dt>Bassin</dt><dd>${esc(p.bassin)}</dd>` : ''}<dt>Identifiant</dt><dd>${esc(p.id)}</dd></dl>${p.lien ? `<p>${link(p.lien, 'Page de la préfecture')}</p>` : ''}</details>`;
+  }).join('') : '<p class="muted">Aucune procédure dans la base GASPAR pour ' + (S.comms.length > 1 ? 'ces communes' : 'la commune') + '.</p>';
+  return h;
+}
+
 function tabCommune() {
   if (!S.com) return S.bb ? '<p class="muted">Commune non identifiée pour cette zone.</p>' : welcome();
   const c = S.com, D = S.data, g = D.gaspar || {};
@@ -2710,7 +2882,6 @@ function tabCommune() {
   const byType = {}; cat.forEach((a) => { byType[a.libelle_risque_jo] = (byType[a.libelle_risque_jo] || 0) + 1; });
   const catSorted = cat.slice().sort((a, b) => frToNum(b.date_debut_evt) - frToNum(a.date_debut_evt));
   const proc = g.proc || [];
-  const docs = new Map(); for (const f of [...(D.pm1 || []), ...(D.pm3 || [])]) { const u = pprDoc(f.properties); if (u && !docs.has(u)) docs.set(u, pprTitle(f.properties)); }
   const icpe = (D.icpe || []).slice().sort((a, b) => (/seuil haut/i.test(b.statutSeveso) - /seuil haut/i.test(a.statutSeveso)) || (/seuil bas/i.test(b.statutSeveso) - /seuil bas/i.test(a.statutSeveso)));
   const sev = icpe.filter((x) => /seuil/i.test(x.statutSeveso || ''));
   const secheresse = cat.filter((a) => /s[ée]cheresse/i.test(a.libelle_risque_jo)).length;
@@ -2722,9 +2893,7 @@ function tabCommune() {
     ${errLine('gaspar')}
     <h3>Risques recensés par l'État</h3>
     ${g.risques && g.risques.length ? `<ul>${g.risques.filter((r) => r.num_risque.length <= 2).map((r) => `<li><b>${esc(r.libelle_risque_long)}</b>${g.risques.filter((x) => x.num_risque.length > 2 && x.num_risque.startsWith(r.num_risque)).map((x) => `<br><span class="muted">${esc(x.libelle_risque_long)}</span>`).join('')}</li>`).join('')}</ul><p class="muted">Base GASPAR, liste établie à partir du dossier départemental sur les risques majeurs.</p>` : '<p class="muted">Aucun risque recensé dans la base GASPAR.</p>'}
-    <h3>Plans de prévention (${fmt(proc.length)})</h3>
-    ${proc.length ? proc.map((p) => `<details><summary>${esc(p.nom)}<small>${esc(p.etat)}${p.appro ? ' le ' + esc(p.appro) : p.presc ? ' le ' + esc(p.presc) : ''}</small></summary><dl class="kv"><dt>Procédure</dt><dd>${esc(p.modele || p.kind.toUpperCase())}${p.revision ? ' · en révision' : ''}</dd>${p.presc ? `<dt>Prescription</dt><dd>${esc(p.presc)}</dd>` : ''}${p.appro ? `<dt>Approbation</dt><dd>${esc(p.appro)}</dd>` : ''}<dt>Aléas</dt><dd>${p.aleas.map((a) => esc(a.lib) + (a.sous.length ? ' (' + a.sous.map(esc).join(', ') + ')' : '')).join(' ; ') || '–'}</dd>${p.zones.length ? `<dt>Zones</dt><dd>${p.zones.map((z) => `${esc(z.nom)} <span class="muted">(${esc((z.type || '').toLowerCase())})</span>`).join(', ')}</dd>` : ''}${p.bassin ? `<dt>Bassin</dt><dd>${esc(p.bassin)}</dd>` : ''}<dt>Identifiant</dt><dd>${esc(p.id)}</dd></dl>${p.lien ? `<p>${link(p.lien, 'Page de la préfecture')}</p>` : ''}</details>`).join('') : '<p class="muted">Aucune procédure dans la base GASPAR pour la commune.</p>'}
-    ${docs.size ? `<h4>Documents officiels publiés dans la zone</h4><ul>${[...docs].map(([u, t]) => `<li>${link(u, t)} <span class="muted">(PDF, Géoportail de l'urbanisme)</span></li>`).join('')}</ul>` : ''}
+    ${pprSection()}
     <h3>Arrêtés de catastrophe naturelle (${fmt(cat.length)})</h3>${errLine('catnat')}
     ${cat.length ? `<ul>${Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<li>${esc(k)} : <b>${fmt(v)}</b></li>`).join('')}</ul>
       <details><summary>Liste des arrêtés<small>du plus récent au plus ancien</small></summary><div class="tblwrap"><table><tr><th>Événement</th><th>Période</th><th>Journal officiel</th></tr>${catSorted.map((a) => `<tr><td>${esc(a.libelle_risque_jo)}</td><td>${esc(a.date_debut_evt)}${a.date_fin_evt && a.date_fin_evt !== a.date_debut_evt ? ' au ' + esc(a.date_fin_evt) : ''}</td><td>${esc(a.date_publication_jo || '')}</td></tr>`).join('')}</table></div></details>
@@ -2954,6 +3123,9 @@ function tabMethode() {
     <p class="lead">RésiTerre n'ajoute aucune donnée de son cru : il interroge les sources officielles, les superpose aux bâtiments de la BD TOPO et restitue ce que chacune dit, dans ses propres termes et ses propres classes.</p>
     <h3>Croisement</h3><ul>
       <li>Un bâtiment est rattaché à une zone (plan de prévention, surface inondable, classe d'argile, zone de PLU, carreau INSEE) quand son centre s'y trouve. Un grand bâtiment à cheval sur une limite peut donc n'être concerné qu'en partie.</li>
+      <li>Un plan de prévention peut ne couvrir qu'une partie de la zone analysée. Pour chaque périmètre publié, l'outil mesure la part de la zone qu'il recouvre, à l'aide d'une grille régulière de points, et compte les bâtiments dont le centre s'y trouve. La liste des procédures de la base GASPAR est, elle, établie commune par commune : un plan n'y est rattaché à un périmètre publié que si le numéro de sa procédure figure dans le document publié, pour le même département.</li>
+      <li>Les couches locales de la Géoplateforme sont triées : celles qui portent un type de règlement, ou dont le nom annonce le zonage d'un plan de prévention, entrent dans la lecture réglementaire et sont rattachées à leur procédure GASPAR quand elles en portent l'identifiant ; les cartes d'aléa, les études et les autres réglementations locales sont affichées à part.</li>
+      <li>Les cartes des territoires à risque important d'inondation sont établies au 1/25 000. Les lire bâtiment par bâtiment donne une approche : près d'une limite, la position exacte reste incertaine.</li>
       <li>Pour les objets ponctuels ou linéaires (cavités, mouvements de terrain, canalisations, anciens sites industriels), la distance est mesurée depuis le centre du bâtiment, dans un rayon de recherche de ${R_PT} m ; pour les cours d'eau, dans un rayon de ${R_EAU} m. Ces rayons servent la lecture et ne correspondent à aucune zone réglementaire.</li>
       <li>La distance aux massifs soumis aux obligations légales de débroussaillement est comparée au seuil de ${R_OLD} m fixé par le code forestier ; la distance aux installations nucléaires, au rayon de leur plan particulier d'intervention publié par Géorisques.</li>
       <li>Les chiffres de population viennent des carreaux INSEE de 200 m : ils décrivent le carreau entier, jamais un bâtiment isolé.</li>
@@ -3004,11 +3176,23 @@ function showRisk(id) {
 }
 // liens présents dans les fiches et la légende, hors du panneau latéral
 document.addEventListener('click', (e) => {
-  const a = e.target.closest('[data-srcref], [data-risk], [data-dry], [data-learn]');
+  const a = e.target.closest('[data-srcref], [data-risk], [data-dry], [data-learn], [data-cov], [data-zlay]');
   if (!a) return;
   e.preventDefault();
-  if (a.dataset.srcref) showSource(a.dataset.srcref); else if (a.dataset.dry) showDry(+a.dataset.dry); else if (a.dataset.learn) openLearn(a.dataset.learn); else showRisk(a.dataset.risk);
+  if (a.dataset.cov != null) showCov(S.cov.plans[+a.dataset.cov]); else if (a.dataset.zlay != null) showCov(S.cov.zlay[+a.dataset.zlay]); else if (a.dataset.srcref) showSource(a.dataset.srcref); else if (a.dataset.dry) showDry(+a.dataset.dry); else if (a.dataset.learn) openLearn(a.dataset.learn); else showRisk(a.dataset.risk);
 });
+// montre sur la carte la partie de la zone couverte par un plan ou une couche de zonage
+function showCov(e) {
+  if (!e) return;
+  const list = e.bids ? e.bids.map((i) => S.B[i]) : S.B.filter((b) => b.zreg.some((z) => z._layer === e.layer));
+  const bb = [Math.max(e.bb[0], S.bb[0]), Math.max(e.bb[1], S.bb[1]), Math.min(e.bb[2], S.bb[2]), Math.min(e.bb[3], S.bb[3])];
+  if (list.length) setFocus(list, e.title);
+  else { setSheet('peek'); }
+  if (bb[0] < bb[2] && bb[1] < bb[3]) {
+    if (S.dim === '3d' && map3d) map3d.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 60, maxZoom: 17 });
+    else map.fitBounds(L.latLngBounds([[bb[1], bb[0]], [bb[3], bb[2]]]).pad(0.1), { maxZoom: 17 });
+  }
+}
 function setFocus(list, lbl) {
   setSheet('peek');
   S.focus = new Set(list.map((b) => b.i));
@@ -3428,13 +3612,17 @@ function communeSection() {
   if (!c) return '';
   const cat = (D.catnat || []).slice().sort((a, b) => frToNum(b.date_debut_evt) - frToNum(a.date_debut_evt));
   const byType = {}; cat.forEach((a) => { byType[a.libelle_risque_jo] = (byType[a.libelle_risque_jo] || 0) + 1; });
-  const docs = new Map(); for (const f of [...(D.pm1 || []), ...(D.pm3 || [])]) { const u = pprDoc(f.properties); if (u && !docs.has(u)) docs.set(u, pprTitle(f.properties)); }
   const sev = (D.icpe || []).filter((x) => /seuil/i.test(x.statutSeveso || ''));
   return `<h2>La commune de ${esc(c.nom)}</h2>
     <p>Code INSEE ${esc(c.code)} · ${c.departement ? esc(c.departement.nom) : ''} · ${fmt(c.population)} habitants (population légale INSEE) · ${link(grCommuneReport(c), 'rapport Géorisques de la commune')}</p>
     <h3>Risques recensés par l'État</h3>${g.risques && g.risques.length ? `<p>${g.risques.filter((r) => r.num_risque.length <= 2).map((r) => esc(r.libelle_risque_long)).join(', ')}.</p>` : g.risques ? '<p class="muted">Aucun risque recensé dans la base GASPAR.</p>' : '<p class="muted">Base GASPAR sans réponse pendant l\'analyse.</p>'}
-    <h3>Plans de prévention</h3>${(g.proc || []).length ? `<table><tr><th>Plan</th><th>État</th><th>Prescription</th><th>Approbation</th><th>Aléas</th></tr>${g.proc.map((p) => `<tr><td>${p.lien ? link(p.lien, p.nom) : esc(p.nom)}<br><span class="muted">${esc(p.modele || '')} · ${esc(p.id)}</span></td><td>${esc(p.etat)}</td><td>${esc(p.presc || '–')}</td><td>${esc(p.appro || '–')}</td><td>${p.aleas.map((a) => esc(a.lib)).join(', ')}</td></tr>`).join('')}</table>` : '<p class="muted">Aucune procédure dans la base GASPAR.</p>'}
-    ${docs.size ? `<p><b>Documents officiels publiés dans la zone :</b></p><ul>${[...docs].map(([u, t]) => `<li>${link(u, t)} (PDF)</li>`).join('')}</ul>` : ''}
+    <h3>Plans de prévention et zone étudiée</h3>
+    ${(() => { const cov = planCoverage(); const tot = S.B.length;
+      let h = cov.plans.length ? `<table><tr><th>Périmètre publié (Géoportail de l'urbanisme)</th><th>Part de la zone étudiée</th><th>Bâtiments</th></tr>${cov.plans.map((e) => `<tr><td>${e.doc ? link(e.doc, e.title) : esc(e.title)}<br><span class="muted">servitude ${e.kind === 'pm3' ? 'PM3' : 'PM1'}</span></td><td>${esc(e.lbl)}</td><td>${fmt(e.nb)} sur ${fmt(tot)}</td></tr>`).join('')}</table>` : '<p class="muted">Aucun périmètre de plan publié sur le Géoportail de l\'urbanisme ne touche la zone.</p>';
+      if (cov.zlay.length) h += `<p><b>Zonages réglementaires détaillés :</b> ${cov.zlay.map((z) => `${esc(z.title)} (${esc(z.lbl.toLowerCase())}${z.procs.length ? ', procédure ' + z.procs.map((pr) => esc(pr.id)).join(', ') : ', sans identifiant GASPAR'})`).join(' ; ')}.</p>`;
+      return h; })()}
+    <p><b>Procédures recensées dans la base GASPAR</b>${S.comms.length > 1 ? ` pour ${S.comms.map((c) => esc(c.nom)).join(', ')}` : ''}, commune par commune : un plan listé peut ne couvrir qu'une partie de la commune.</p>
+    ${(g.proc || []).length ? `<table><tr><th>Plan</th><th>Aléas et statut</th><th>Dans la zone étudiée</th></tr>${g.proc.map((p) => { const cv = planCoverage(), lk = cv.link.get(p.id) || [], lz = cv.zlink.get(p.id) || []; return `<tr><td>${p.lien ? link(p.lien, p.nom) : esc(p.nom)}<br><span class="muted">${esc(p.modele || '')} · ${esc(p.id)}${S.comms.length > 1 ? ' · ' + p.coms.map(esc).join(', ') : ''}</span></td><td>${p.aleas.map((a) => `${esc(a.lib)} : ${esc(a.etat.toLowerCase())}${a.etat === 'Approuvé' && a.appro ? ' le ' + esc(a.appro) : a.etat === 'Prescrit' && a.presc ? ' le ' + esc(a.presc) : ''}`).join('<br>') || '–'}</td><td>${lk.length ? lk.map((e) => esc(e.lbl)).join(' ; ') : lz.length ? lz.map((z) => esc(z.lbl)).join(' ; ') + ' (d\'après le zonage publié)' : 'Non déterminé automatiquement'}</td></tr>`; }).join('')}</table>` : '<p class="muted">Aucune procédure dans la base GASPAR.</p>'}
     <h3>Arrêtés de catastrophe naturelle (${fmt(cat.length)})</h3>${cat.length ? `<p>${Object.entries(byType).map(([k, v]) => `${esc(k)} : ${fmt(v)}`).join(' ; ')}.</p><table><tr><th>Événement</th><th>Période</th><th>Journal officiel</th></tr>${cat.slice(0, 40).map((a) => `<tr><td>${esc(a.libelle_risque_jo)}</td><td>${esc(a.date_debut_evt)}${a.date_fin_evt && a.date_fin_evt !== a.date_debut_evt ? ' au ' + esc(a.date_fin_evt) : ''}</td><td>${esc(a.date_publication_jo || '')}</td></tr>`).join('')}</table>${cat.length > 40 ? `<p class="muted">Et ${fmt(cat.length - 40)} arrêtés plus anciens.</p>` : ''}` : '<p class="muted">Aucun arrêté recensé.</p>'}
     <h3>Information préventive</h3><ul>
       <li>DICRIM : ${g.dicrim && g.dicrim.length ? 'publié en ' + esc(g.dicrim[0].annee_publication) : 'non recensé'}</li>
